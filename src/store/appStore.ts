@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import { User, USERS, Shipment, SHIPMENTS, Flight, FLIGHTS, Equipment, EQUIPMENT, ActionLog, ACTION_LOGS } from '@/data/mock';
+import { User, USERS, Shipment, SHIPMENTS, Flight, FLIGHTS, Equipment, EQUIPMENT, ActionLog, ACTION_LOGS, AutoTask, AUTO_TASKS } from '@/data/mock';
 
-export type Section = 'dashboard' | 'planning-rail' | 'flights-rail' | 'equipment' | 'requests' | 'accounts' | 'reports';
+export type Section = 'dashboard' | 'planning-rail' | 'planning-auto' | 'flights-rail' | 'equipment' | 'requests' | 'accounts' | 'reports';
 
 interface AppStore {
   currentUser: User | null;
@@ -32,6 +32,12 @@ interface AppStore {
   updateEquipment: (id: string, data: Partial<Equipment>, userId: string, userName: string) => void;
   addEquipment: (e: Equipment) => void;
   deleteEquipment: (id: string) => void;
+
+  autoTasks: AutoTask[];
+  addAutoTask: (t: AutoTask) => void;
+  updateAutoTask: (id: string, data: Partial<AutoTask>) => void;
+  deleteAutoTask: (id: string) => void;
+  deleteManyAutoTasks: (ids: string[]) => void;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -41,6 +47,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   flights: FLIGHTS,
   equipment: EQUIPMENT,
   logs: ACTION_LOGS,
+  autoTasks: AUTO_TASKS,
   sidebarOpen: true,
   darkMode: false,
 
@@ -112,4 +119,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
   addEquipment: (e) => set(s => ({ equipment: [...s.equipment, e] })),
   deleteEquipment: (id) => set(s => ({ equipment: s.equipment.filter(e => e.id !== id) })),
+
+  addAutoTask: (t) => set(s => ({ autoTasks: [...s.autoTasks, t] })),
+  updateAutoTask: (id, data) => set(s => ({ autoTasks: s.autoTasks.map(t => t.id === id ? { ...t, ...data } : t) })),
+  deleteAutoTask: (id) => set(s => ({ autoTasks: s.autoTasks.filter(t => t.id !== id) })),
+  deleteManyAutoTasks: (ids) => set(s => ({ autoTasks: s.autoTasks.filter(t => !ids.includes(t.id)) })),
 }));

@@ -12,6 +12,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { id: 'dashboard', label: 'Дашборд', icon: 'LayoutDashboard' },
   { id: 'planning-rail', label: 'Планирование ЖД', icon: 'TableProperties', parent: 'Планирование' },
+  { id: 'planning-auto', label: 'Планирование АВТО', icon: 'Truck', parent: 'Планирование' },
   { id: 'flights-rail', label: 'Рейсы ЖД', icon: 'Train', parent: 'Рейсы' },
   { id: 'equipment', label: 'Оборудование', icon: 'Container' },
   { id: 'requests', label: 'Заявки', icon: 'ClipboardList' },

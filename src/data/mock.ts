@@ -148,6 +148,54 @@ export type ActionLog = {
   timestamp: string;
 };
 
+// ==================== АВТО ====================
+
+export type AutoTaskType = 'movement' | 'loading' | 'unloading';
+export type AutoTaskStatus = 'planned' | 'in_progress' | 'done' | 'cancelled';
+
+export interface AutoTask {
+  id: string;
+  type: AutoTaskType;
+  date: string;
+  containerNumber: string;
+  client: string;
+  carrier: string;
+  time: string;
+  address: string;
+  contact: string;
+  terminalFrom: string;
+  terminalTo: string;
+  cargo: string;
+  tempMode: string;
+  status: AutoTaskStatus;
+  comment: string;
+  direction?: string;
+  editedBy?: string;
+  editedAt?: string;
+}
+
+export const AUTO_TASK_TYPE_LABEL: Record<AutoTaskType, string> = {
+  movement: 'Перемещение',
+  loading: 'Погрузка',
+  unloading: 'Выгрузка',
+};
+
+export const AUTO_TASK_STATUS_LABEL: Record<AutoTaskStatus, string> = {
+  planned: 'Запланировано',
+  in_progress: 'В процессе',
+  done: 'Выполнено',
+  cancelled: 'Отменено',
+};
+
+export const AUTO_TASKS: AutoTask[] = [
+  { id: 'at1', type: 'movement', date: '2026-02-24', containerNumber: 'SEGU9149102', client: '', carrier: 'ГТЛ', time: '', address: '', contact: '', terminalFrom: 'ВМТП', terminalTo: 'ПИК', cargo: 'Киви', tempMode: '-18', status: 'planned', comment: '', direction: 'Шушары' },
+  { id: 'at2', type: 'loading', date: '2026-02-24', containerNumber: 'AVGU7003537', client: 'ВИКИНГ ООО', carrier: 'ИП Нагель', time: '9:00', address: 'Артём, ул. 1я Рабочая, 83', contact: '8 914 07 50 545 Алеся', terminalFrom: 'с Выгрузки', terminalTo: 'ПИК', cargo: 'Куриная грудка', tempMode: '-25', status: 'planned', comment: '', direction: 'Селятино' },
+  { id: 'at3', type: 'unloading', date: '2026-02-24', containerNumber: 'AVGU7003537', client: 'ДВЛОГИСТИК ООО', carrier: 'Нагель', time: '13:00', address: 'Надеждинский район, ТОР Надеждинская, ул. Центральная 20', contact: '8924 130-56-46 Михаил', terminalFrom: 'ПИК', terminalTo: 'На погрузку', cargo: '', tempMode: '', status: 'planned', comment: '' },
+  { id: 'at4', type: 'unloading', date: '2026-02-24', containerNumber: 'MNBU3226593', client: 'ООО "Фар Ист Логистик"', carrier: 'самовывоз', time: '', address: '', contact: '', terminalFrom: 'ПИК', terminalTo: 'Форвард', cargo: '', tempMode: '', status: 'planned', comment: 'выдача разрешена' },
+  { id: 'at5', type: 'unloading', date: '2026-02-24', containerNumber: 'TEMU9205820', client: 'ТК ВИКИНГ ООО', carrier: 'Солдис', time: '10:30', address: 'г. Артём, ул. 1-я Рабочая, д. 83', contact: '8 914 07 50 545 Алеся', terminalFrom: 'ПИК', terminalTo: 'Терминал Б', cargo: '', tempMode: '', status: 'done', comment: '' },
+  { id: 'at6', type: 'movement', date: '2026-02-24', containerNumber: 'NLUU0205679', client: 'ПОРОЖНИЕ С САХАЛИНА', carrier: 'ГТЛ', time: '', address: '', contact: '', terminalFrom: 'ВМТП', terminalTo: 'ПОСЕЙДОН', cargo: '', tempMode: '', status: 'planned', comment: '' },
+];
+
 export const ACTION_LOGS: ActionLog[] = [
   { id: 'l1', userId: '1', userName: 'Алексей Петров', action: 'Изменён статус', entity: 'Отправка', entityId: 's1', timestamp: '2026-02-23 09:14' },
   { id: 'l2', userId: '2', userName: 'Марина Соколова', action: 'Создан рейс', entity: 'Рейс', entityId: 'f2', timestamp: '2026-02-23 08:30' },
