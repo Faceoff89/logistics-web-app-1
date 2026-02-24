@@ -22,13 +22,14 @@ interface PlanningRailTableProps {
   onCopySelected: () => void;
   onMoveSelected: () => void;
   onClearSelected: () => void;
+  onDeleteSelected: () => void;
 }
 
 export function PlanningRailTable({
   filtered, flights, selected, dragId,
   onToggleSelect, onSelectAll, onDragStart, onDragEnd,
   onEdit, onCopy, onMoveOne,
-  onCopySelected, onMoveSelected, onClearSelected,
+  onCopySelected, onMoveSelected, onClearSelected, onDeleteSelected,
 }: PlanningRailTableProps) {
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -61,7 +62,7 @@ export function PlanningRailTable({
                 </td>
               </tr>
             )}
-            {filtered.map(s => {
+            {filtered.map((s, idx) => {
               const flight = flights.find(f => f.id === s.flightId);
               const days = calcDaysOnTerminal(s.deliveryDate);
               return (
@@ -87,7 +88,9 @@ export function PlanningRailTable({
                   </td>
                   {COLS.map(col => (
                     <td key={col.key} className={cn('px-3 py-2 text-foreground', col.width)}>
-                      {col.key === 'status' ? (
+                      {col.key === 'number' ? (
+                        <span className="text-muted-foreground font-medium">{idx + 1}</span>
+                      ) : col.key === 'status' ? (
                         <StatusCell value={s.status} onChange={v => onEdit(s.id, 'status', v)} />
                       ) : col.key === 'shipmentType' ? (
                         <ShipmentTypeCell value={s.shipmentType} onChange={v => onEdit(s.id, 'shipmentType', v)} />
@@ -156,6 +159,13 @@ export function PlanningRailTable({
             </Button>
             <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onMoveSelected}>
               <Icon name="ArrowRightLeft" size={12} className="mr-1" /> Переместить в рейс
+            </Button>
+            <Button
+              variant="outline" size="sm"
+              className="h-7 text-xs text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/5"
+              onClick={onDeleteSelected}
+            >
+              <Icon name="Trash2" size={12} className="mr-1" /> Удалить ({selected.size})
             </Button>
             <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onClearSelected}>
               Снять выделение

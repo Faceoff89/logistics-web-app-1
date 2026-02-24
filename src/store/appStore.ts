@@ -22,10 +22,12 @@ interface AppStore {
   updateShipment: (id: string, data: Partial<Shipment>, userId: string, userName: string) => void;
   addShipment: (s: Shipment) => void;
   deleteShipment: (id: string) => void;
+  deleteManyShipments: (ids: string[]) => void;
   moveShipmentToFlight: (shipmentId: string, flightId: string, userId: string, userName: string) => void;
 
   addFlight: (f: Flight) => void;
   updateFlight: (id: string, data: Partial<Flight>) => void;
+  departFlight: (flightId: string, userId: string, userName: string) => void;
 
   updateEquipment: (id: string, data: Partial<Equipment>, userId: string, userName: string) => void;
   addEquipment: (e: Equipment) => void;
@@ -69,6 +71,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
   addShipment: (ship) => set(s => ({ shipments: [...s.shipments, ship] })),
   deleteShipment: (id) => set(s => ({ shipments: s.shipments.filter(sh => sh.id !== id) })),
+  deleteManyShipments: (ids) => set(s => ({ shipments: s.shipments.filter(sh => !ids.includes(sh.id)) })),
   moveShipmentToFlight: (shipmentId, flightId, userId, userName) => {
     const log: ActionLog = {
       id: `l${Date.now()}`, userId, userName,
@@ -83,6 +86,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   addFlight: (f) => set(s => ({ flights: [...s.flights, f] })),
   updateFlight: (id, data) => set(s => ({ flights: s.flights.map(f => f.id === id ? { ...f, ...data } : f) })),
+  departFlight: (flightId, userId, userName) => {
+    const log: ActionLog = {
+      id: `l${Date.now()}`, userId, userName,
+      action: `Рейс отправлен`, entity: 'Рейс', entityId: flightId,
+      timestamp: new Date().toLocaleString('ru'),
+    };
+    set(s => ({
+      flights: s.flights.map(f => f.id === flightId ? { ...f, status: 'departed', factDate: new Date().toISOString().slice(0, 10) } : f),
+      shipments: s.shipments.map(sh => sh.flightId === flightId ? { ...sh, status: 'in_transit' } : sh),
+      logs: [log, ...s.logs],
+    }));
+  },
 
   updateEquipment: (id, data, userId, userName) => {
     const log: ActionLog = {

@@ -1,18 +1,17 @@
 import { useState } from 'react';
 import { useAppStore } from '@/store/appStore';
-import { Shipment, STATUSES_LABEL, SHIPMENT_TYPE_LABEL } from '@/data/mock';
-import { ShipmentBadge } from '@/components/StatusBadge';
+import { Shipment, STATUSES_LABEL } from '@/data/mock';
 import Icon from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { COLS, STATUS_ROW_COLORS } from './planning-rail/PlanningRailCells';
+import { COLS, STATUS_ROW_COLORS, calcDaysOnTerminal, EditableCell, StatusCell, ShipmentTypeCell, TerminalCell } from './planning-rail/PlanningRailCells';
 import { FlightCreateModal, AddShipmentModal, MoveToFlightModal } from './planning-rail/PlanningRailModals';
 import { PlanningRailTable } from './planning-rail/PlanningRailTable';
 
 export default function PlanningRail() {
-  const { shipments, flights, updateShipment, addShipment, currentUser } = useAppStore();
+  const { shipments, flights, updateShipment, addShipment, deleteManyShipments, departFlight, currentUser } = useAppStore();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterFlight, setFilterFlight] = useState('all');
@@ -60,6 +59,11 @@ export default function PlanningRail() {
       number: String(shipments.length + 1).padStart(3, '0'),
       request: s.request ? `${s.request}-копия` : '',
     });
+  };
+
+  const handleDeleteSelected = () => {
+    deleteManyShipments(Array.from(selected));
+    setSelected(new Set());
   };
 
   const handleCopySelected = () => {
@@ -166,9 +170,24 @@ export default function PlanningRail() {
         <div className="bg-card rounded-xl border border-border overflow-hidden animate-fade-in">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
             <span className="text-sm font-semibold text-foreground">{panelTitle}</span>
-            <button onClick={() => setFlightPanelId(null)} className="text-muted-foreground hover:text-foreground transition-colors">
-              <Icon name="X" size={14} />
-            </button>
+            <div className="flex items-center gap-2">
+              {panelFlight && panelFlight.status !== 'departed' && (
+                <Button
+                  size="sm"
+                  className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => {
+                    if (!currentUser) return;
+                    departFlight(panelFlight.id, currentUser.id, currentUser.name);
+                    setFlightPanelId(null);
+                  }}
+                >
+                  <Icon name="Train" size={12} className="mr-1" /> В путь
+                </Button>
+              )}
+              <button onClick={() => setFlightPanelId(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="X" size={14} />
+              </button>
+            </div>
           </div>
           {panelShipments.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">Нет заявок</p>
@@ -177,27 +196,53 @@ export default function PlanningRail() {
               <table className="min-w-max w-full text-xs">
                 <thead>
                   <tr className="border-b border-border bg-muted/20">
-                    {['№', 'Заявка', 'Клиент', 'Контейнер', 'Футы', 'Груз', 'Т°', 'Вес, кг', 'Статус', 'Тип', 'Терминал'].map(h => (
-                      <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap w-10">№</th>
+                    {COLS.filter(c => c.key !== 'number').map(col => (
+                      <th key={col.key} className={cn('px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap', col.width)}>
+                        {col.label}
+                      </th>
                     ))}
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap w-20">Дней на терм.</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {panelShipments.map(s => (
-                    <tr key={s.id} className={cn('border-b border-border last:border-0', STATUS_ROW_COLORS[s.status])}>
-                      <td className="px-3 py-2 text-foreground">{s.number}</td>
-                      <td className="px-3 py-2 text-foreground">{s.request || '—'}</td>
-                      <td className="px-3 py-2 text-foreground">{s.client}</td>
-                      <td className="px-3 py-2 font-mono text-foreground">{s.containerNumber}</td>
-                      <td className="px-3 py-2 text-foreground">{s.footage}</td>
-                      <td className="px-3 py-2 text-foreground">{s.cargo}</td>
-                      <td className="px-3 py-2 text-foreground">{s.tempMode}</td>
-                      <td className="px-3 py-2 text-foreground">{s.weight.toLocaleString('ru')}</td>
-                      <td className="px-3 py-2"><ShipmentBadge status={s.status} /></td>
-                      <td className="px-3 py-2 text-foreground">{SHIPMENT_TYPE_LABEL[s.shipmentType]}</td>
-                      <td className="px-3 py-2 text-foreground">{s.terminal}</td>
-                    </tr>
-                  ))}
+                  {panelShipments.map((s, idx) => {
+                    const days = calcDaysOnTerminal(s.deliveryDate);
+                    return (
+                      <tr key={s.id} className={cn('border-b border-border last:border-0', STATUS_ROW_COLORS[s.status])}>
+                        <td className="px-3 py-2 text-muted-foreground font-medium">{idx + 1}</td>
+                        {COLS.filter(c => c.key !== 'number').map(col => (
+                          <td key={col.key} className={cn('px-3 py-2 text-foreground', col.width)}>
+                            {col.key === 'status' ? (
+                              <StatusCell value={s.status} onChange={v => handleEdit(s.id, 'status', v)} />
+                            ) : col.key === 'shipmentType' ? (
+                              <ShipmentTypeCell value={s.shipmentType} onChange={v => handleEdit(s.id, 'shipmentType', v)} />
+                            ) : col.key === 'terminal' ? (
+                              <TerminalCell value={s.terminal} onChange={v => handleEdit(s.id, 'terminal', v)} />
+                            ) : (
+                              <EditableCell
+                                value={String(s[col.key] ?? '')}
+                                onChange={v => handleEdit(s.id, col.key, v)}
+                                type={col.key.includes('Date') ? 'date' : 'text'}
+                              />
+                            )}
+                          </td>
+                        ))}
+                        <td className="px-3 py-2">
+                          {days !== null ? (
+                            <span className={cn(
+                              'inline-flex items-center justify-center rounded-full px-2 py-0.5 font-semibold text-xs',
+                              days > 14 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                              days > 7 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                              'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                            )}>
+                              {days} д
+                            </span>
+                          ) : <span className="text-muted-foreground/40">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -223,6 +268,7 @@ export default function PlanningRail() {
         onCopySelected={handleCopySelected}
         onMoveSelected={() => setMoveOpen(true)}
         onClearSelected={() => setSelected(new Set())}
+        onDeleteSelected={handleDeleteSelected}
       />
 
       <FlightCreateModal open={createFlight} onClose={() => setCreateFlight(false)} />
