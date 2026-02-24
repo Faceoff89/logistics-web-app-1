@@ -314,12 +314,17 @@ function AddShipmentModal({ open, onClose, flightId, nextNumber }: { open: boole
 }
 
 function MoveToFlightModal({ open, onClose, shipmentIds }: { open: boolean; onClose: () => void; shipmentIds: string[] }) {
-  const { flights, moveShipmentToFlight, currentUser } = useAppStore();
+  const { flights, moveShipmentToFlight, updateShipment, currentUser } = useAppStore();
   const [selectedFlight, setSelectedFlight] = useState('');
 
   const handleMove = () => {
-    if (!selectedFlight || !currentUser) return;
-    shipmentIds.forEach(id => moveShipmentToFlight(id, selectedFlight, currentUser.id, currentUser.name));
+    if (!currentUser) return;
+    if (selectedFlight === 'unassigned') {
+      shipmentIds.forEach(id => updateShipment(id, { flightId: '' }, currentUser.id, currentUser.name));
+    } else {
+      if (!selectedFlight) return;
+      shipmentIds.forEach(id => moveShipmentToFlight(id, selectedFlight, currentUser.id, currentUser.name));
+    }
     onClose();
   };
 
@@ -336,6 +341,7 @@ function MoveToFlightModal({ open, onClose, shipmentIds }: { open: boolean; onCl
             <Select value={selectedFlight} onValueChange={setSelectedFlight}>
               <SelectTrigger><SelectValue placeholder="Выберите рейс" /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="unassigned">Не распределённые</SelectItem>
                 {flights.map(f => <SelectItem key={f.id} value={f.id}>{f.number}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -360,6 +366,7 @@ export default function PlanningRail() {
   const [moveOpen, setMoveOpen] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [flightPanelId, setFlightPanelId] = useState<string | null>(null);
 
   const filtered = shipments.filter(s => {
     const q = search.toLowerCase();
@@ -401,6 +408,31 @@ export default function PlanningRail() {
     addShipment(copy);
   };
 
+  const handleCopySelected = () => {
+    const toCopy = filtered.filter(s => selected.has(s.id));
+    toCopy.forEach((s, i) => {
+      addShipment({
+        ...s,
+        id: `s${Date.now() + i}`,
+        number: String(shipments.length + 1 + i).padStart(3, '0'),
+        request: s.request ? `${s.request}-копия` : '',
+      });
+    });
+    setSelected(new Set());
+  };
+
+  const panelShipments = flightPanelId === 'unassigned'
+    ? shipments.filter(s => !s.flightId)
+    : flightPanelId
+      ? shipments.filter(s => s.flightId === flightPanelId)
+      : [];
+  const panelFlight = flightPanelId && flightPanelId !== 'unassigned'
+    ? flights.find(f => f.id === flightPanelId)
+    : null;
+  const panelTitle = flightPanelId === 'unassigned'
+    ? 'Не распределённые'
+    : panelFlight?.number ?? '';
+
   const exportCSV = () => {
     const rows = [COLS.map(c => c.label).join(';')];
     filtered.forEach(s => rows.push(COLS.map(c => String(s[c.key] ?? '')).join(';')));
@@ -440,19 +472,85 @@ export default function PlanningRail() {
         </Button>
       </div>
 
-      {flights.length > 0 && (
-        <div className="flex gap-2 flex-wrap items-center">
-          <p className="text-xs text-muted-foreground">Перетащить в рейс:</p>
-          {flights.map(f => (
+      <div className="flex gap-2 flex-wrap items-center">
+        <p className="text-xs text-muted-foreground shrink-0">Рейсы:</p>
+        <div
+          onClick={() => setFlightPanelId(prev => prev === 'unassigned' ? null : 'unassigned')}
+          onDragOver={e => e.preventDefault()}
+          onDrop={() => handleDrop('')}
+          className={cn(
+            'px-3 py-1.5 rounded-lg border-2 border-dashed text-xs transition-colors cursor-pointer',
+            flightPanelId === 'unassigned'
+              ? 'border-primary text-primary bg-primary/5'
+              : 'border-border text-muted-foreground hover:border-primary hover:text-primary'
+          )}
+        >
+          Не распределённые ({shipments.filter(s => !s.flightId).length})
+        </div>
+        {flights.map(f => {
+          const count = shipments.filter(s => s.flightId === f.id).length;
+          return (
             <div
               key={f.id}
+              onClick={() => setFlightPanelId(prev => prev === f.id ? null : f.id)}
               onDragOver={e => e.preventDefault()}
               onDrop={() => handleDrop(f.id)}
-              className="px-3 py-1.5 rounded-lg border-2 border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-default"
+              className={cn(
+                'px-3 py-1.5 rounded-lg border-2 border-dashed text-xs transition-colors cursor-pointer',
+                flightPanelId === f.id
+                  ? 'border-primary text-primary bg-primary/5'
+                  : 'border-border text-muted-foreground hover:border-primary hover:text-primary'
+              )}
             >
-              {f.number}
+              {f.number} ({count})
             </div>
-          ))}
+          );
+        })}
+      </div>
+
+      {flightPanelId && (
+        <div className="bg-card rounded-xl border border-border overflow-hidden animate-fade-in">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+            <span className="text-sm font-semibold text-foreground">{panelTitle}</span>
+            <button onClick={() => setFlightPanelId(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+              <Icon name="X" size={14} />
+            </button>
+          </div>
+          {panelShipments.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">Нет заявок</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-max w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/20">
+                    {['№', 'Заявка', 'Клиент', 'Контейнер', 'Футы', 'Груз', 'Т°', 'Вес, кг', 'Статус', 'Тип', 'Терминал'].map(h => (
+                      <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {panelShipments.map(s => (
+                    <tr key={s.id} className={cn('border-b border-border last:border-0', STATUS_ROW_COLORS[s.status])}>
+                      <td className="px-3 py-2 text-foreground">{s.number}</td>
+                      <td className="px-3 py-2 text-foreground">{s.request || '—'}</td>
+                      <td className="px-3 py-2 text-foreground">{s.client}</td>
+                      <td className="px-3 py-2 font-mono text-foreground">{s.containerNumber}</td>
+                      <td className="px-3 py-2 text-foreground">{s.footage}</td>
+                      <td className="px-3 py-2 text-foreground">{s.cargo}</td>
+                      <td className="px-3 py-2 text-foreground">{s.tempMode}</td>
+                      <td className="px-3 py-2 text-foreground">{s.weight.toLocaleString('ru')}</td>
+                      <td className="px-3 py-2"><ShipmentBadge status={s.status} /></td>
+                      <td className="px-3 py-2 text-foreground">{SHIPMENT_TYPE_LABEL[s.shipmentType]}</td>
+                      <td className="px-3 py-2 text-foreground">{s.terminal}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="px-4 py-2 border-t border-border bg-muted/10">
+            <span className="text-xs text-muted-foreground">Всего: {panelShipments.length} заявок</span>
+          </div>
         </div>
       )}
 
@@ -563,6 +661,9 @@ export default function PlanningRail() {
           </span>
           {selected.size > 0 && (
             <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleCopySelected}>
+                <Icon name="Copy" size={12} className="mr-1" /> Копировать ({selected.size})
+              </Button>
               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setMoveOpen(true)}>
                 <Icon name="ArrowRightLeft" size={12} className="mr-1" /> Переместить в рейс
               </Button>
