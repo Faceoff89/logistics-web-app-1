@@ -42,7 +42,8 @@ export const EQUIPMENT: Equipment[] = [
   { id: 'e12', number: 'HLCU2345678', type: 'container', status: 'checked', location: 'ДТК', lastCheck: '2026-02-17', comment: '' },
 ];
 
-export type ShipmentStatus = 'ready' | 'not_ready' | 'in_transit' | 'delivered';
+export type ShipmentStatus = 'ready' | 'not_ready' | 'in_transit' | 'delayed';
+export type ShipmentType = 'import' | 'rf' | 'transit';
 export type Direction = 'moscow' | 'spb' | 'novosibirsk';
 
 export interface Shipment {
@@ -61,6 +62,7 @@ export interface Shipment {
   tempMode: string;
   vsdNumber: string;
   status: ShipmentStatus;
+  shipmentType: ShipmentType;
   terminal: string;
   destination: string;
   gngCode: string;
@@ -94,21 +96,27 @@ export const FLIGHTS: Flight[] = [
 ];
 
 export const SHIPMENTS: Shipment[] = [
-  { id: 's1', number: '001', request: 'ЗЯ-2026-045', client: 'ООО Фрешпром', containerNumber: 'TCKU3456789', footage: '40HC', deliveryDate: '2026-02-25', docsDate: '2026-02-22', inspectionDate: '2026-02-23', places: 12, weight: 18500, cargo: 'Мясо птицы', tempMode: '-18', vsdNumber: 'ВСД-001234', status: 'ready', terminal: 'ПИК', destination: 'Москва-Товарная', gngCode: '0207', etsnvCode: '011', requestName: 'Мясо замороженное', comment: '', dtNumber: 'ДТ-2026-001', billOfLading: '', subsidy: 'Да', flightId: 'f1' },
-  { id: 's2', number: '002', request: 'ЗЯ-2026-046', client: 'АО МолокоТрейд', containerNumber: 'CRXU7890123', footage: '20', deliveryDate: '2026-02-26', docsDate: '2026-02-23', inspectionDate: '', places: 8, weight: 12000, cargo: 'Сыр твёрдый', tempMode: '+4', vsdNumber: 'ВСД-001235', status: 'not_ready', terminal: 'ДТК', destination: 'Санкт-Петербург-Тов', gngCode: '0406', etsnvCode: '014', requestName: 'Молочная продукция', comment: 'Ожидаем ВСД', dtNumber: '', billOfLading: '', subsidy: 'Нет', flightId: 'f2' },
-  { id: 's3', number: '003', request: 'ЗЯ-2026-047', client: 'ИП Рыбников', containerNumber: 'MSCU4561234', footage: '40', deliveryDate: '2026-02-27', docsDate: '2026-02-24', inspectionDate: '2026-02-24', places: 20, weight: 22000, cargo: 'Рыба мороженная', tempMode: '-20', vsdNumber: 'ВСД-001236', status: 'ready', terminal: 'ПИК', destination: 'Новосибирск-Вост', gngCode: '0302', etsnvCode: '012', requestName: 'Рыба замороженная', comment: '', dtNumber: 'ДТ-2026-003', billOfLading: 'КОН-001', subsidy: 'Да', flightId: 'f3' },
-  { id: 's4', number: '004', request: 'ЗЯ-2026-048', client: 'ООО АгроЭкспорт', containerNumber: 'GESU1234567', footage: '40HC', deliveryDate: '2026-03-02', docsDate: '', inspectionDate: '', places: 16, weight: 19800, cargo: 'Ягода замороженная', tempMode: '-18', vsdNumber: '', status: 'not_ready', terminal: 'ДТК', destination: 'Москва-Товарная', gngCode: '0811', etsnvCode: '018', requestName: 'Плодоовощная', comment: 'Нет документов', dtNumber: '', billOfLading: '', subsidy: 'Нет', flightId: 'f1' },
-  { id: 's5', number: '005', request: 'ЗЯ-2026-049', client: 'ООО СибМит', containerNumber: 'СVIU8901234', footage: '40', deliveryDate: '2026-03-05', docsDate: '2026-03-01', inspectionDate: '', places: 14, weight: 16500, cargo: 'Говядина', tempMode: '-18', vsdNumber: 'ВСД-001237', status: 'not_ready', terminal: 'ПИК', destination: 'Новосибирск-Вост', gngCode: '0201', etsnvCode: '011', requestName: 'Мясо крупного скота', comment: '', dtNumber: '', billOfLading: '', subsidy: 'Да', flightId: 'f4' },
-  { id: 's6', number: '006', request: 'ЗЯ-2026-050', client: 'ООО ПродИмпорт', containerNumber: 'TCKU9876543', footage: '20', deliveryDate: '2026-03-06', docsDate: '2026-03-03', inspectionDate: '2026-03-04', places: 10, weight: 11000, cargo: 'Масло сливочное', tempMode: '+4', vsdNumber: 'ВСД-001238', status: 'ready', terminal: 'ДТК', destination: 'Санкт-Петербург-Тов', gngCode: '0405', etsnvCode: '014', requestName: 'Молочный жир', comment: '', dtNumber: 'ДТ-2026-006', billOfLading: '', subsidy: 'Нет', flightId: 'f2' },
+  { id: 's1', number: '001', request: 'ЗЯ-2026-045', client: 'ООО Фрешпром', containerNumber: 'TCKU3456789', footage: '40HC', deliveryDate: '2026-02-20', docsDate: '2026-02-22', inspectionDate: '2026-02-23', places: 12, weight: 18500, cargo: 'Мясо птицы', tempMode: '-18', vsdNumber: 'ВСД-001234', status: 'ready', shipmentType: 'import', terminal: 'ПИК', destination: 'Москва-Товарная', gngCode: '0207', etsnvCode: '011', requestName: 'Мясо замороженное', comment: '', dtNumber: 'ДТ-2026-001', billOfLading: '', subsidy: 'Да', flightId: 'f1' },
+  { id: 's2', number: '002', request: 'ЗЯ-2026-046', client: 'АО МолокоТрейд', containerNumber: 'CRXU7890123', footage: '20', deliveryDate: '2026-02-18', docsDate: '2026-02-23', inspectionDate: '', places: 8, weight: 12000, cargo: 'Сыр твёрдый', tempMode: '+4', vsdNumber: 'ВСД-001235', status: 'not_ready', shipmentType: 'rf', terminal: 'ДТК', destination: 'Санкт-Петербург-Тов', gngCode: '0406', etsnvCode: '014', requestName: 'Молочная продукция', comment: 'Ожидаем ВСД', dtNumber: '', billOfLading: '', subsidy: 'Нет', flightId: 'f2' },
+  { id: 's3', number: '003', request: 'ЗЯ-2026-047', client: 'ИП Рыбников', containerNumber: 'MSCU4561234', footage: '40', deliveryDate: '2026-02-15', docsDate: '2026-02-24', inspectionDate: '2026-02-24', places: 20, weight: 22000, cargo: 'Рыба мороженная', tempMode: '-20', vsdNumber: 'ВСД-001236', status: 'in_transit', shipmentType: 'transit', terminal: 'ПИК', destination: 'Новосибирск-Вост', gngCode: '0302', etsnvCode: '012', requestName: 'Рыба замороженная', comment: '', dtNumber: 'ДТ-2026-003', billOfLading: 'КОН-001', subsidy: 'Да', flightId: 'f3' },
+  { id: 's4', number: '004', request: 'ЗЯ-2026-048', client: 'ООО АгроЭкспорт', containerNumber: 'GESU1234567', footage: '40HC', deliveryDate: '2026-02-10', docsDate: '', inspectionDate: '', places: 16, weight: 19800, cargo: 'Ягода замороженная', tempMode: '-18', vsdNumber: '', status: 'delayed', shipmentType: 'import', terminal: 'ДТК', destination: 'Москва-Товарная', gngCode: '0811', etsnvCode: '018', requestName: 'Плодоовощная', comment: 'Нет документов', dtNumber: '', billOfLading: '', subsidy: 'Нет', flightId: 'f1' },
+  { id: 's5', number: '005', request: 'ЗЯ-2026-049', client: 'ООО СибМит', containerNumber: 'СVIU8901234', footage: '40', deliveryDate: '2026-02-22', docsDate: '2026-03-01', inspectionDate: '', places: 14, weight: 16500, cargo: 'Говядина', tempMode: '-18', vsdNumber: 'ВСД-001237', status: 'not_ready', shipmentType: 'rf', terminal: 'ПИК', destination: 'Новосибирск-Вост', gngCode: '0201', etsnvCode: '011', requestName: 'Мясо крупного скота', comment: '', dtNumber: '', billOfLading: '', subsidy: 'Да', flightId: 'f4' },
+  { id: 's6', number: '006', request: 'ЗЯ-2026-050', client: 'ООО ПродИмпорт', containerNumber: 'TCKU9876543', footage: '20', deliveryDate: '2026-02-19', docsDate: '2026-03-03', inspectionDate: '2026-03-04', places: 10, weight: 11000, cargo: 'Масло сливочное', tempMode: '+4', vsdNumber: 'ВСД-001238', status: 'ready', shipmentType: 'transit', terminal: 'ДТК', destination: 'Санкт-Петербург-Тов', gngCode: '0405', etsnvCode: '014', requestName: 'Молочный жир', comment: '', dtNumber: 'ДТ-2026-006', billOfLading: '', subsidy: 'Нет', flightId: 'f2' },
 ];
 
 export const TERMINALS = ['ПИК', 'ДТК', 'Гамбург', 'Восточный', 'Новороссийск'];
 
 export const STATUSES_LABEL: Record<ShipmentStatus, string> = {
-  ready: 'Готов к отправке',
+  ready: 'Готов',
   not_ready: 'Не готов',
   in_transit: 'В пути',
-  delivered: 'Доставлен',
+  delayed: 'Задержан',
+};
+
+export const SHIPMENT_TYPE_LABEL: Record<ShipmentType, string> = {
+  import: 'Импорт',
+  rf: 'РФ',
+  transit: 'Транзит',
 };
 
 export const DIRECTIONS_LABEL: Record<Direction, string> = {

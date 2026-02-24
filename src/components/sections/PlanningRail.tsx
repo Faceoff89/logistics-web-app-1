@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useAppStore } from '@/store/appStore';
-import { Shipment, ShipmentStatus, TERMINALS, STATUSES_LABEL } from '@/data/mock';
+import { Shipment, ShipmentStatus, ShipmentType, TERMINALS, STATUSES_LABEL, SHIPMENT_TYPE_LABEL } from '@/data/mock';
 import { ShipmentBadge } from '@/components/StatusBadge';
 import Icon from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
+const STATUS_ROW_COLORS: Record<ShipmentStatus, string> = {
+  ready: 'bg-emerald-50/60 dark:bg-emerald-950/20',
+  not_ready: 'bg-amber-50/60 dark:bg-amber-950/20',
+  in_transit: 'bg-blue-50/60 dark:bg-blue-950/20',
+  delayed: 'bg-red-50/70 dark:bg-red-950/25',
+};
 
 const COLS: { key: keyof Shipment; label: string; width: string }[] = [
   { key: 'number', label: '№', width: 'w-12' },
@@ -22,10 +29,21 @@ const COLS: { key: keyof Shipment; label: string; width: string }[] = [
   { key: 'tempMode', label: 'Т°', width: 'w-16' },
   { key: 'weight', label: 'Вес, кг', width: 'w-24' },
   { key: 'status', label: 'Статус', width: 'w-36' },
+  { key: 'shipmentType', label: 'Тип', width: 'w-24' },
   { key: 'terminal', label: 'Терминал', width: 'w-28' },
   { key: 'destination', label: 'Станция назначения', width: 'w-44' },
   { key: 'comment', label: 'Комментарий', width: 'w-44' },
 ];
+
+function calcDaysOnTerminal(deliveryDate: string): number | null {
+  if (!deliveryDate) return null;
+  const d = new Date(deliveryDate);
+  if (isNaN(d.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  return Math.floor((today.getTime() - d.getTime()) / 86400000);
+}
 
 function EditableCell({ value, onChange, type = 'text' }: { value: string; onChange: (v: string) => void; type?: string }) {
   const [editing, setEditing] = useState(false);
@@ -75,8 +93,38 @@ function StatusCell({ value, onChange }: { value: ShipmentStatus; onChange: (v: 
   return <span onClick={() => setOpen(true)} className="cursor-pointer"><ShipmentBadge status={value} /></span>;
 }
 
+function ShipmentTypeCell({ value, onChange }: { value: ShipmentType; onChange: (v: ShipmentType) => void }) {
+  const colors: Record<ShipmentType, string> = {
+    import: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+    rf: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+    transit: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  };
+  const [open, setOpen] = useState(false);
+  if (open) {
+    return (
+      <select
+        autoFocus
+        value={value}
+        onChange={e => { onChange(e.target.value as ShipmentType); setOpen(false); }}
+        onBlur={() => setOpen(false)}
+        className="text-xs bg-card border border-border rounded px-1 py-0.5 outline-none text-foreground"
+      >
+        {Object.entries(SHIPMENT_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+      </select>
+    );
+  }
+  return (
+    <span
+      onClick={() => setOpen(true)}
+      className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer', colors[value])}
+    >
+      {SHIPMENT_TYPE_LABEL[value]}
+    </span>
+  );
+}
+
 function FlightCreateModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { addFlight, flights } = useAppStore();
+  const { addFlight } = useAppStore();
   const [form, setForm] = useState({ number: '', direction: 'moscow', planDate: '', factDate: '' });
 
   const handleCreate = () => {
@@ -127,12 +175,189 @@ function FlightCreateModal({ open, onClose }: { open: boolean; onClose: () => vo
   );
 }
 
+const EMPTY_SHIPMENT: Omit<Shipment, 'id' | 'number'> = {
+  request: '', client: '', containerNumber: '', footage: '40HC',
+  deliveryDate: '', docsDate: '', inspectionDate: '', places: 0, weight: 0,
+  cargo: '', tempMode: '', vsdNumber: '', status: 'not_ready', shipmentType: 'import',
+  terminal: 'ПИК', destination: '', gngCode: '', etsnvCode: '', requestName: '',
+  comment: '', dtNumber: '', billOfLading: '', subsidy: 'Нет', flightId: '',
+};
+
+function AddShipmentModal({ open, onClose, flightId, nextNumber }: { open: boolean; onClose: () => void; flightId: string; nextNumber: string }) {
+  const { addShipment, flights } = useAppStore();
+  const [form, setForm] = useState<Omit<Shipment, 'id' | 'number'>>({ ...EMPTY_SHIPMENT, flightId });
+
+  const set = (key: keyof typeof form, val: string | number) => setForm(prev => ({ ...prev, [key]: val }));
+
+  const handleAdd = () => {
+    if (!form.client || !form.containerNumber) return;
+    addShipment({ id: `s${Date.now()}`, number: nextNumber, ...form });
+    setForm({ ...EMPTY_SHIPMENT, flightId });
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Добавить заявку</DialogTitle>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3 mt-2">
+          <div className="space-y-1">
+            <Label>Заявка</Label>
+            <Input value={form.request} onChange={e => set('request', e.target.value)} placeholder="ЗЯ-2026-000" />
+          </div>
+          <div className="space-y-1">
+            <Label>Клиент *</Label>
+            <Input value={form.client} onChange={e => set('client', e.target.value)} placeholder="ООО Название" />
+          </div>
+          <div className="space-y-1">
+            <Label>Контейнер *</Label>
+            <Input value={form.containerNumber} onChange={e => set('containerNumber', e.target.value)} placeholder="TCKU0000000" />
+          </div>
+          <div className="space-y-1">
+            <Label>Футы</Label>
+            <Select value={form.footage} onValueChange={v => set('footage', v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {['20', '40', '40HC', '45'].map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Дата завоза</Label>
+            <Input type="date" value={form.deliveryDate} onChange={e => set('deliveryDate', e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>Дата документов</Label>
+            <Input type="date" value={form.docsDate} onChange={e => set('docsDate', e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>Груз</Label>
+            <Input value={form.cargo} onChange={e => set('cargo', e.target.value)} placeholder="Мясо птицы" />
+          </div>
+          <div className="space-y-1">
+            <Label>Темп. режим</Label>
+            <Input value={form.tempMode} onChange={e => set('tempMode', e.target.value)} placeholder="-18" />
+          </div>
+          <div className="space-y-1">
+            <Label>Вес, кг</Label>
+            <Input type="number" value={form.weight || ''} onChange={e => set('weight', Number(e.target.value))} placeholder="18000" />
+          </div>
+          <div className="space-y-1">
+            <Label>Мест</Label>
+            <Input type="number" value={form.places || ''} onChange={e => set('places', Number(e.target.value))} placeholder="12" />
+          </div>
+          <div className="space-y-1">
+            <Label>Тип отправки</Label>
+            <Select value={form.shipmentType} onValueChange={v => set('shipmentType', v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="import">Импорт</SelectItem>
+                <SelectItem value="rf">РФ</SelectItem>
+                <SelectItem value="transit">Транзит</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Статус</Label>
+            <Select value={form.status} onValueChange={v => set('status', v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(STATUSES_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Терминал</Label>
+            <Select value={form.terminal} onValueChange={v => set('terminal', v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {TERMINALS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Рейс</Label>
+            <Select value={form.flightId} onValueChange={v => set('flightId', v)}>
+              <SelectTrigger><SelectValue placeholder="Выбрать рейс" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Без рейса</SelectItem>
+                {flights.map(f => <SelectItem key={f.id} value={f.id}>{f.number}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1 col-span-2">
+            <Label>Станция назначения</Label>
+            <Input value={form.destination} onChange={e => set('destination', e.target.value)} placeholder="Москва-Товарная" />
+          </div>
+          <div className="space-y-1">
+            <Label>Номер ВСД</Label>
+            <Input value={form.vsdNumber} onChange={e => set('vsdNumber', e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>Номер ДТ</Label>
+            <Input value={form.dtNumber} onChange={e => set('dtNumber', e.target.value)} />
+          </div>
+          <div className="space-y-1 col-span-2">
+            <Label>Комментарий</Label>
+            <Input value={form.comment} onChange={e => set('comment', e.target.value)} />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-3">
+          <Button variant="outline" onClick={onClose}>Отмена</Button>
+          <Button onClick={handleAdd} disabled={!form.client || !form.containerNumber}>Добавить</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MoveToFlightModal({ open, onClose, shipmentIds }: { open: boolean; onClose: () => void; shipmentIds: string[] }) {
+  const { flights, moveShipmentToFlight, currentUser } = useAppStore();
+  const [selectedFlight, setSelectedFlight] = useState('');
+
+  const handleMove = () => {
+    if (!selectedFlight || !currentUser) return;
+    shipmentIds.forEach(id => moveShipmentToFlight(id, selectedFlight, currentUser.id, currentUser.name));
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Переместить в рейс</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
+          <p className="text-sm text-muted-foreground">Выбрано строк: {shipmentIds.length}</p>
+          <div className="space-y-1">
+            <Label>Рейс</Label>
+            <Select value={selectedFlight} onValueChange={setSelectedFlight}>
+              <SelectTrigger><SelectValue placeholder="Выберите рейс" /></SelectTrigger>
+              <SelectContent>
+                {flights.map(f => <SelectItem key={f.id} value={f.id}>{f.number}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={onClose}>Отмена</Button>
+            <Button onClick={handleMove} disabled={!selectedFlight}>Переместить</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function PlanningRail() {
-  const { shipments, flights, updateShipment, currentUser } = useAppStore();
+  const { shipments, flights, updateShipment, addShipment, currentUser } = useAppStore();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterFlight, setFilterFlight] = useState('all');
   const [createFlight, setCreateFlight] = useState(false);
+  const [addShipmentOpen, setAddShipmentOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -143,6 +368,8 @@ export default function PlanningRail() {
     const matchFlight = filterFlight === 'all' || s.flightId === filterFlight;
     return matchSearch && matchStatus && matchFlight;
   });
+
+  const nextNumber = String(shipments.length + 1).padStart(3, '0');
 
   const handleEdit = (id: string, key: keyof Shipment, val: string) => {
     if (!currentUser) return;
@@ -158,9 +385,20 @@ export default function PlanningRail() {
   };
 
   const handleDrop = (flightId: string) => {
-    if (!dragId || !currentUser) return;
-    updateShipment(dragId, { flightId }, currentUser.id, currentUser.name);
+    if (!currentUser) return;
+    const ids = dragId ? [dragId] : Array.from(selected);
+    ids.forEach(id => updateShipment(id, { flightId }, currentUser.id, currentUser.name));
     setDragId(null);
+  };
+
+  const handleCopy = (s: Shipment) => {
+    const copy: Shipment = {
+      ...s,
+      id: `s${Date.now()}`,
+      number: String(shipments.length + 1).padStart(3, '0'),
+      request: s.request ? `${s.request}-копия` : '',
+    };
+    addShipment(copy);
   };
 
   const exportCSV = () => {
@@ -194,14 +432,17 @@ export default function PlanningRail() {
         <Button variant="outline" size="sm" onClick={exportCSV} className="h-9">
           <Icon name="Download" size={14} className="mr-1.5" /> Экспорт CSV
         </Button>
-        <Button size="sm" className="h-9" onClick={() => setCreateFlight(true)}>
-          <Icon name="Plus" size={14} className="mr-1.5" /> Создать рейс
+        <Button variant="outline" size="sm" className="h-9" onClick={() => setCreateFlight(true)}>
+          <Icon name="Train" size={14} className="mr-1.5" /> Создать рейс
+        </Button>
+        <Button size="sm" className="h-9" onClick={() => setAddShipmentOpen(true)}>
+          <Icon name="Plus" size={14} className="mr-1.5" /> Добавить заявку
         </Button>
       </div>
 
       {flights.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          <p className="text-xs text-muted-foreground self-center">Перетащить в рейс:</p>
+        <div className="flex gap-2 flex-wrap items-center">
+          <p className="text-xs text-muted-foreground">Перетащить в рейс:</p>
           {flights.map(f => (
             <div
               key={f.id}
@@ -228,15 +469,18 @@ export default function PlanningRail() {
                     {col.label}
                   </th>
                 ))}
-                <th className="w-8" />
+                <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground whitespace-nowrap w-20">Дней на терм.</th>
+                <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground whitespace-nowrap w-36">Рейс</th>
+                <th className="w-20 px-2 py-2.5" />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={COLS.length + 2} className="text-center py-10 text-muted-foreground">Ничего не найдено</td></tr>
+                <tr><td colSpan={COLS.length + 4} className="text-center py-10 text-muted-foreground">Ничего не найдено</td></tr>
               )}
               {filtered.map(s => {
                 const flight = flights.find(f => f.id === s.flightId);
+                const days = calcDaysOnTerminal(s.deliveryDate);
                 return (
                   <tr
                     key={s.id}
@@ -245,7 +489,8 @@ export default function PlanningRail() {
                     onDragEnd={() => setDragId(null)}
                     className={cn(
                       'border-b border-border transition-colors group',
-                      selected.has(s.id) ? 'bg-accent/50' : 'hover:bg-muted/40',
+                      STATUS_ROW_COLORS[s.status],
+                      selected.has(s.id) ? 'ring-1 ring-inset ring-primary/40' : '',
                       dragId === s.id && 'opacity-50',
                     )}
                   >
@@ -256,6 +501,8 @@ export default function PlanningRail() {
                       <td key={col.key} className={cn('px-3 py-2 text-foreground', col.width)}>
                         {col.key === 'status' ? (
                           <StatusCell value={s.status} onChange={v => handleEdit(s.id, 'status', v)} />
+                        ) : col.key === 'shipmentType' ? (
+                          <ShipmentTypeCell value={s.shipmentType} onChange={v => handleEdit(s.id, 'shipmentType', v)} />
                         ) : col.key === 'terminal' ? (
                           <select
                             value={s.terminal}
@@ -269,10 +516,40 @@ export default function PlanningRail() {
                         )}
                       </td>
                     ))}
-                    <td className="px-2 py-2">
-                      {flight && (
+                    <td className="px-3 py-2">
+                      {days !== null ? (
+                        <span className={cn(
+                          'inline-flex items-center justify-center rounded-full px-2 py-0.5 font-semibold text-xs',
+                          days > 14 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                          days > 7 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                          'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                        )}>
+                          {days} д
+                        </span>
+                      ) : <span className="text-muted-foreground/40">—</span>}
+                    </td>
+                    <td className="px-3 py-2">
+                      {flight ? (
                         <span className="text-[10px] text-muted-foreground whitespace-nowrap">{flight.number}</span>
-                      )}
+                      ) : <span className="text-muted-foreground/40">—</span>}
+                    </td>
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          title="Копировать строку"
+                          onClick={() => handleCopy(s)}
+                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Icon name="Copy" size={13} />
+                        </button>
+                        <button
+                          title="Переместить в рейс"
+                          onClick={() => { setSelected(new Set([s.id])); setMoveOpen(true); }}
+                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Icon name="ArrowRightLeft" size={13} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -286,6 +563,9 @@ export default function PlanningRail() {
           </span>
           {selected.size > 0 && (
             <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setMoveOpen(true)}>
+                <Icon name="ArrowRightLeft" size={12} className="mr-1" /> Переместить в рейс
+              </Button>
               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setSelected(new Set())}>
                 Снять выделение
               </Button>
@@ -295,6 +575,8 @@ export default function PlanningRail() {
       </div>
 
       <FlightCreateModal open={createFlight} onClose={() => setCreateFlight(false)} />
+      <AddShipmentModal open={addShipmentOpen} onClose={() => setAddShipmentOpen(false)} flightId="" nextNumber={nextNumber} />
+      <MoveToFlightModal open={moveOpen} onClose={() => { setMoveOpen(false); setSelected(new Set()); }} shipmentIds={Array.from(selected)} />
     </div>
   );
 }
