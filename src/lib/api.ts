@@ -5,19 +5,21 @@ function getToken(): string {
   return localStorage.getItem('auth_token') || '';
 }
 
-async function apiFetch(url: string, method = 'GET', body?: unknown, withAuth = true) {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (withAuth) {
-    const token = getToken();
-    if (token) headers['X-Auth-Token'] = token;
-  }
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+async function authFetch(payload: Record<string, unknown>) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getToken();
+  if (token) headers['X-Auth-Token'] = token;
+  const res = await fetch(AUTH_URL, { method: 'POST', headers, body: JSON.stringify(payload) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Ошибка сервера');
+  return data;
+}
+
+async function dataFetch(payload: Record<string, unknown>) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getToken();
+  if (token) headers['X-Auth-Token'] = token;
+  const res = await fetch(DATA_URL, { method: 'POST', headers, body: JSON.stringify(payload) });
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error || 'Ошибка сервера');
   return data;
@@ -27,52 +29,47 @@ async function apiFetch(url: string, method = 'GET', body?: unknown, withAuth = 
 
 export const authApi = {
   login: (email: string, password: string) =>
-    apiFetch(`${AUTH_URL}/login`, 'POST', { email, password }, false),
+    authFetch({ action: 'login', email, password }),
 
   logout: () =>
-    apiFetch(`${AUTH_URL}/logout`, 'POST'),
+    authFetch({ action: 'logout' }),
 
   me: () =>
-    apiFetch(`${AUTH_URL}/me`),
+    authFetch({ action: 'me' }),
 
   getUsers: () =>
-    apiFetch(`${AUTH_URL}/users`),
+    authFetch({ action: 'get_users' }),
 
   createUser: (data: { name: string; email: string; password: string; role: string }) =>
-    apiFetch(`${AUTH_URL}/users`, 'POST', data),
+    authFetch({ action: 'create_user', ...data }),
 
   updateUser: (id: string, data: Partial<{ name: string; email: string; password: string; role: string; is_active: boolean }>) =>
-    apiFetch(`${AUTH_URL}/users/${id}`, 'PUT', data),
+    authFetch({ action: 'update_user', id, ...data }),
 };
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
 export const dataApi = {
-  // Shipments
-  getShipments: () => apiFetch(`${DATA_URL}/shipments`),
-  createShipment: (data: unknown) => apiFetch(`${DATA_URL}/shipments`, 'POST', data),
-  updateShipment: (id: string, data: unknown) => apiFetch(`${DATA_URL}/shipments/${id}`, 'PUT', data),
-  deleteShipment: (id: string) => apiFetch(`${DATA_URL}/shipments/${id}`, 'DELETE'),
+  getShipments: () => dataFetch({ action: 'get_shipments' }),
+  createShipment: (data: unknown) => dataFetch({ action: 'create_shipment', ...(data as object) }),
+  updateShipment: (id: string, data: unknown) => dataFetch({ action: 'update_shipment', id, ...(data as object) }),
+  deleteShipment: (id: string) => dataFetch({ action: 'delete_shipment', id }),
 
-  // Flights
-  getFlights: () => apiFetch(`${DATA_URL}/flights`),
-  createFlight: (data: unknown) => apiFetch(`${DATA_URL}/flights`, 'POST', data),
-  updateFlight: (id: string, data: unknown) => apiFetch(`${DATA_URL}/flights/${id}`, 'PUT', data),
+  getFlights: () => dataFetch({ action: 'get_flights' }),
+  createFlight: (data: unknown) => dataFetch({ action: 'create_flight', ...(data as object) }),
+  updateFlight: (id: string, data: unknown) => dataFetch({ action: 'update_flight', id, ...(data as object) }),
 
-  // Equipment
-  getEquipment: () => apiFetch(`${DATA_URL}/equipment`),
-  createEquipment: (data: unknown) => apiFetch(`${DATA_URL}/equipment`, 'POST', data),
-  updateEquipment: (id: string, data: unknown) => apiFetch(`${DATA_URL}/equipment/${id}`, 'PUT', data),
-  deleteEquipment: (id: string) => apiFetch(`${DATA_URL}/equipment/${id}`, 'DELETE'),
+  getEquipment: () => dataFetch({ action: 'get_equipment' }),
+  createEquipment: (data: unknown) => dataFetch({ action: 'create_equipment', ...(data as object) }),
+  updateEquipment: (id: string, data: unknown) => dataFetch({ action: 'update_equipment', id, ...(data as object) }),
+  deleteEquipment: (id: string) => dataFetch({ action: 'delete_equipment', id }),
 
-  // Auto tasks
-  getAutoTasks: () => apiFetch(`${DATA_URL}/auto_tasks`),
-  createAutoTask: (data: unknown) => apiFetch(`${DATA_URL}/auto_tasks`, 'POST', data),
-  updateAutoTask: (id: string, data: unknown) => apiFetch(`${DATA_URL}/auto_tasks/${id}`, 'PUT', data),
-  deleteAutoTask: (id: string) => apiFetch(`${DATA_URL}/auto_tasks/${id}`, 'DELETE'),
+  getAutoTasks: () => dataFetch({ action: 'get_auto_tasks' }),
+  createAutoTask: (data: unknown) => dataFetch({ action: 'create_auto_task', ...(data as object) }),
+  updateAutoTask: (id: string, data: unknown) => dataFetch({ action: 'update_auto_task', id, ...(data as object) }),
+  deleteAutoTask: (id: string) => dataFetch({ action: 'delete_auto_task', id }),
 
-  // Logs
-  getLogs: () => apiFetch(`${DATA_URL}/action_logs`),
+  getLogs: () => dataFetch({ action: 'get_action_logs' }),
   createLog: (data: { userId: string; userName: string; action: string; entity: string; entityId: string }) =>
-    apiFetch(`${DATA_URL}/action_logs`, 'POST', data),
+    dataFetch({ action: 'create_action_log', ...data }),
 };

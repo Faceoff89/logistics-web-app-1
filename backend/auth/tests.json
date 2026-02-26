@@ -6,6 +6,15 @@
       "path": "/",
       "expectedStatus": 200,
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Login director",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "login", "email": "director@polarstar.ru", "password": "123456"},
+      "expectedStatus": 200,
+      "expectedBody": {"token": "string"},
+      "bodyMatcher": "partial"
     }
   ]
 }

@@ -1,6 +1,6 @@
 """
 Авторизация и управление пользователями.
-Методы: POST /login, GET /users, POST /users, PUT /users/{id}
+Действия передаются через поле action в теле: login, logout, me, get_users, create_user, update_user
 """
 import json
 import os
@@ -13,7 +13,7 @@ SCHEMA = 't_p78311576_logistics_web_app_1'
 CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Auth-Token, X-User-Id, X-Session-Id',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Auth-Token, X-User-Id',
     'Access-Control-Max-Age': '86400',
 }
 
@@ -52,26 +52,26 @@ def handler(event: dict, context) -> dict:
     if event.get('httpMethod') == 'OPTIONS':
         return {'statusCode': 200, 'headers': CORS, 'body': ''}
 
-    method = event.get('httpMethod', 'GET')
-    path = event.get('path', '/')
     headers = event.get('headers') or {}
     token = headers.get('X-Auth-Token', '')
+
     body = {}
     if event.get('body'):
         try:
             body = json.loads(event['body'])
-        except Exception:
+        except (ValueError, TypeError):
             pass
+
+    action = body.get('action', '')
 
     conn = get_db()
     try:
-        # POST /login
-        if path.endswith('/login') and method == 'POST':
+        # login
+        if action == 'login':
             email = body.get('email', '').strip().lower()
             password = body.get('password', '')
             if not email or not password:
                 return err('Укажите email и пароль')
-
             pw_hash = hash_password(password)
             cur = conn.cursor()
             cur.execute(
@@ -83,34 +83,32 @@ def handler(event: dict, context) -> dict:
                 return err('Неверный email или пароль', 401)
             if not row[4]:
                 return err('Аккаунт деактивирован', 403)
-
-            user_id = row[0]
             session_token = secrets.token_hex(32)
             expires = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
             cur.execute(
                 f"INSERT INTO {SCHEMA}.sessions (user_id, token, expires_at) "
-                f"VALUES ({q(str(user_id))}, {q(session_token)}, {q(expires)})"
+                f"VALUES ({q(str(row[0]))}, {q(session_token)}, {q(expires)})"
             )
             conn.commit()
             return ok({'token': session_token, 'user': {'id': str(row[0]), 'name': row[1], 'email': row[2], 'role': row[3]}})
 
-        # POST /logout
-        if path.endswith('/logout') and method == 'POST':
+        # logout
+        if action == 'logout':
             if token:
                 cur = conn.cursor()
                 cur.execute(f"UPDATE {SCHEMA}.sessions SET expires_at = NOW() WHERE token = {q(token)}")
                 conn.commit()
             return ok({'ok': True})
 
-        # GET /me
-        if path.endswith('/me') and method == 'GET':
+        # me
+        if action == 'me':
             user = get_session_user(conn, token)
             if not user:
                 return err('Не авторизован', 401)
             return ok({'user': user})
 
-        # GET /users
-        if path.endswith('/users') and method == 'GET':
+        # get_users
+        if action == 'get_users':
             user = get_session_user(conn, token)
             if not user:
                 return err('Не авторизован', 401)
@@ -122,8 +120,8 @@ def handler(event: dict, context) -> dict:
             users = [{'id': str(r[0]), 'name': r[1], 'email': r[2], 'role': r[3], 'is_active': r[4], 'created_at': str(r[5])} for r in rows]
             return ok({'users': users})
 
-        # POST /users
-        if path.endswith('/users') and method == 'POST':
+        # create_user
+        if action == 'create_user':
             user = get_session_user(conn, token)
             if not user:
                 return err('Не авторизован', 401)
@@ -149,14 +147,14 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({'id': str(new_id), 'name': name, 'email': email, 'role': role, 'is_active': True}, 201)
 
-        # PUT /users/{id}
-        if '/users/' in path and method == 'PUT':
+        # update_user
+        if action == 'update_user':
             user = get_session_user(conn, token)
             if not user:
                 return err('Не авторизован', 401)
             if user['role'] not in ('admin', 'director'):
                 return err('Нет доступа', 403)
-            target_id = path.split('/users/')[-1].split('/')[0]
+            target_id = body.get('id', '')
             parts = []
             if 'name' in body:
                 parts.append(f"name = {q(body['name'])}")
@@ -178,6 +176,6 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({'ok': True})
 
-        return err('Маршрут не найден', 404)
+        return err('Неизвестное действие', 400)
     finally:
         conn.close()
