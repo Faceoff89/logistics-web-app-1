@@ -78,7 +78,13 @@ export default function LoginPage() {
                 <button
                   key={u.email}
                   type="button"
-                  onClick={() => { setEmail(u.email); setPassword('123456'); setError(''); }}
+                  onClick={async () => {
+                    setEmail(u.email); setPassword('123456'); setError('');
+                    setLoading(true);
+                    const ok = await login(u.email, '123456');
+                    if (!ok) setError('Неверный email или пароль');
+                    setLoading(false);
+                  }}
                   className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-muted transition-colors flex justify-between"
                 >
                   <span className="font-medium text-foreground">{u.label}</span>
