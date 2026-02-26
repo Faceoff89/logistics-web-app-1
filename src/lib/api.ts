@@ -5,11 +5,14 @@ function getToken(): string {
   return localStorage.getItem('auth_token') || '';
 }
 
-async function apiFetch(url: string, method = 'GET', body?: unknown) {
+async function apiFetch(url: string, method = 'GET', body?: unknown, withAuth = true) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'X-Auth-Token': getToken(),
   };
+  if (withAuth) {
+    const token = getToken();
+    if (token) headers['X-Auth-Token'] = token;
+  }
   const res = await fetch(url, {
     method,
     headers,
@@ -24,7 +27,7 @@ async function apiFetch(url: string, method = 'GET', body?: unknown) {
 
 export const authApi = {
   login: (email: string, password: string) =>
-    apiFetch(`${AUTH_URL}/login`, 'POST', { email, password }),
+    apiFetch(`${AUTH_URL}/login`, 'POST', { email, password }, false),
 
   logout: () =>
     apiFetch(`${AUTH_URL}/logout`, 'POST'),

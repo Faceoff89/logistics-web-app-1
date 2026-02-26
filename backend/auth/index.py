@@ -13,7 +13,8 @@ SCHEMA = 't_p78311576_logistics_web_app_1'
 CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Auth-Token, X-User-Id',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Auth-Token, X-User-Id, X-Session-Id',
+    'Access-Control-Max-Age': '86400',
 }
 
 def get_db():
