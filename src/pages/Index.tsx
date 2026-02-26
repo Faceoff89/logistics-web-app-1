@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useAppStore } from '@/store/appStore';
 import LoginPage from '@/components/LoginPage';
 import Sidebar from '@/components/Sidebar';
@@ -13,7 +14,23 @@ import Reports from '@/components/sections/Reports';
 import { cn } from '@/lib/utils';
 
 export default function Index() {
-  const { currentUser, section, sidebarOpen } = useAppStore();
+  const { currentUser, section, sidebarOpen, restoreSession } = useAppStore();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    restoreSession().finally(() => setChecking(false));
+  }, []);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">Загрузка...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!currentUser) return <LoginPage />;
 

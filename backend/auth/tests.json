@@ -1,0 +1,22 @@
+{
+  "tests": [
+    {
+      "name": "Login success",
+      "method": "POST",
+      "path": "/login",
+      "body": {"email": "director@polarstar.ru", "password": "123456"},
+      "expectedStatus": 401,
+      "expectedBody": {"error": "Неверный email или пароль"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Login no body",
+      "method": "POST",
+      "path": "/login",
+      "body": {},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "Укажите email и пароль"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

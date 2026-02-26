@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "name": "GET shipments unauthorized",
+      "method": "GET",
+      "path": "/shipments",
+      "expectedStatus": 401,
+      "expectedBody": {"error": "Не авторизован"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET unknown entity",
+      "method": "GET",
+      "path": "/unknown",
+      "expectedStatus": 404,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

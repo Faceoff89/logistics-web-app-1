@@ -15,8 +15,8 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await new Promise(r => setTimeout(r, 400));
-    const ok = login(email, password);
+    setError('');
+    const ok = await login(email, password);
     if (!ok) setError('Неверный email или пароль');
     setLoading(false);
   };
