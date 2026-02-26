@@ -1,9 +1,5 @@
 """
 CRUD API для всех сущностей: shipments, flights, equipment, auto_tasks, action_logs.
-GET /data/{entity} — список
-POST /data/{entity} — создать
-PUT /data/{entity}/{id} — обновить
-DELETE /data/{entity}/{id} — удалить (помечает флагом или удаляет)
 """
 import json
 import os
@@ -21,6 +17,20 @@ ALLOWED_ENTITIES = {'shipments', 'flights', 'equipment', 'auto_tasks', 'action_l
 def get_db():
     return psycopg2.connect(os.environ['DATABASE_URL'])
 
+def q(val):
+    if val is None:
+        return 'NULL'
+    return "'" + str(val).replace("'", "''") + "'"
+
+def qn(val, default=0):
+    try:
+        return str(float(val)) if val not in (None, '') else str(default)
+    except Exception:
+        return str(default)
+
+def qb(val):
+    return 'TRUE' if val else 'FALSE'
+
 def ok(data, status=200):
     return {'statusCode': status, 'headers': {**CORS, 'Content-Type': 'application/json'}, 'body': json.dumps(data, ensure_ascii=False, default=str)}
 
@@ -34,8 +44,7 @@ def get_session_user(conn, token: str):
     cur.execute(
         f"SELECT u.id, u.name, u.email, u.role FROM {SCHEMA}.sessions s "
         f"JOIN {SCHEMA}.users u ON u.id = s.user_id "
-        f"WHERE s.token = %s AND s.expires_at > NOW()",
-        (token,)
+        f"WHERE s.token = {q(token)} AND s.expires_at > NOW()"
     )
     row = cur.fetchone()
     if not row:
@@ -102,12 +111,10 @@ def handler(event: dict, context) -> dict:
     if event.get('body'):
         try:
             body = json.loads(event['body'])
-        except Exception:
+        except (ValueError, TypeError):
             pass
 
-    # Разбираем путь: /data/{entity} или /data/{entity}/{id}
     parts = [p for p in path.split('/') if p]
-    # parts может быть ['data', 'shipments'] или ['data', 'shipments', 'uuid']
     entity = parts[1] if len(parts) > 1 else ''
     record_id = parts[2] if len(parts) > 2 else None
 
@@ -142,19 +149,19 @@ def handler(event: dict, context) -> dict:
                     f"inspection_date, places, weight, cargo, temp_mode, vsd_number, status, "
                     f"shipment_type, terminal, destination, gng_code, etsnv_code, request_name, "
                     f"comment, dt_number, bill_of_lading, subsidy, flight_id, edited_by) "
-                    f"VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
-                    f"RETURNING id",
-                    (b.get('number',''), b.get('request',''), b.get('client',''),
-                     b.get('containerNumber',''), b.get('footage',''),
-                     b.get('deliveryDate') or None, b.get('docsDate') or None,
-                     b.get('inspectionDate') or None,
-                     int(b.get('places', 0)), float(b.get('weight', 0)),
-                     b.get('cargo',''), b.get('tempMode',''), b.get('vsdNumber',''),
-                     b.get('status','not_ready'), b.get('shipmentType','import'),
-                     b.get('terminal',''), b.get('destination',''),
-                     b.get('gngCode',''), b.get('etsnvCode',''), b.get('requestName',''),
-                     b.get('comment',''), b.get('dtNumber',''), b.get('billOfLading',''),
-                     b.get('subsidy',''), b.get('flightId') or None, b.get('editedBy',''))
+                    f"VALUES ("
+                    f"{q(b.get('number',''))},{q(b.get('request',''))},{q(b.get('client',''))},"
+                    f"{q(b.get('containerNumber',''))},{q(b.get('footage',''))},"
+                    f"{q(b.get('deliveryDate') or None)},{q(b.get('docsDate') or None)},"
+                    f"{q(b.get('inspectionDate') or None)},"
+                    f"{int(b.get('places', 0))},{qn(b.get('weight', 0))},"
+                    f"{q(b.get('cargo',''))},{q(b.get('tempMode',''))},{q(b.get('vsdNumber',''))},"
+                    f"{q(b.get('status','not_ready'))},{q(b.get('shipmentType','import'))},"
+                    f"{q(b.get('terminal',''))},{q(b.get('destination',''))},"
+                    f"{q(b.get('gngCode',''))},{q(b.get('etsnvCode',''))},{q(b.get('requestName',''))},"
+                    f"{q(b.get('comment',''))},{q(b.get('dtNumber',''))},{q(b.get('billOfLading',''))},"
+                    f"{q(b.get('subsidy',''))},{q(b.get('flightId') or None)},{q(b.get('editedBy',''))}"
+                    f") RETURNING id"
                 )
                 new_id = cur.fetchone()[0]
                 conn.commit()
@@ -164,32 +171,29 @@ def handler(event: dict, context) -> dict:
                 b = body
                 cur.execute(
                     f"UPDATE {SCHEMA}.shipments SET "
-                    f"number=%s, request=%s, client=%s, container_number=%s, footage=%s, "
-                    f"delivery_date=%s, docs_date=%s, inspection_date=%s, places=%s, weight=%s, "
-                    f"cargo=%s, temp_mode=%s, vsd_number=%s, status=%s, shipment_type=%s, "
-                    f"terminal=%s, destination=%s, gng_code=%s, etsnv_code=%s, request_name=%s, "
-                    f"comment=%s, dt_number=%s, bill_of_lading=%s, subsidy=%s, flight_id=%s, "
-                    f"edited_by=%s, edited_at=NOW(), updated_at=NOW() WHERE id=%s",
-                    (b.get('number',''), b.get('request',''), b.get('client',''),
-                     b.get('containerNumber',''), b.get('footage',''),
-                     b.get('deliveryDate') or None, b.get('docsDate') or None,
-                     b.get('inspectionDate') or None,
-                     int(b.get('places', 0)), float(b.get('weight', 0)),
-                     b.get('cargo',''), b.get('tempMode',''), b.get('vsdNumber',''),
-                     b.get('status','not_ready'), b.get('shipmentType','import'),
-                     b.get('terminal',''), b.get('destination',''),
-                     b.get('gngCode',''), b.get('etsnvCode',''), b.get('requestName',''),
-                     b.get('comment',''), b.get('dtNumber',''), b.get('billOfLading',''),
-                     b.get('subsidy',''), b.get('flightId') or None, b.get('editedBy',''),
-                     record_id)
+                    f"number={q(b.get('number',''))}, request={q(b.get('request',''))}, client={q(b.get('client',''))}, "
+                    f"container_number={q(b.get('containerNumber',''))}, footage={q(b.get('footage',''))}, "
+                    f"delivery_date={q(b.get('deliveryDate') or None)}, docs_date={q(b.get('docsDate') or None)}, "
+                    f"inspection_date={q(b.get('inspectionDate') or None)}, "
+                    f"places={int(b.get('places', 0))}, weight={qn(b.get('weight', 0))}, "
+                    f"cargo={q(b.get('cargo',''))}, temp_mode={q(b.get('tempMode',''))}, vsd_number={q(b.get('vsdNumber',''))}, "
+                    f"status={q(b.get('status','not_ready'))}, shipment_type={q(b.get('shipmentType','import'))}, "
+                    f"terminal={q(b.get('terminal',''))}, destination={q(b.get('destination',''))}, "
+                    f"gng_code={q(b.get('gngCode',''))}, etsnv_code={q(b.get('etsnvCode',''))}, request_name={q(b.get('requestName',''))}, "
+                    f"comment={q(b.get('comment',''))}, dt_number={q(b.get('dtNumber',''))}, bill_of_lading={q(b.get('billOfLading',''))}, "
+                    f"subsidy={q(b.get('subsidy',''))}, flight_id={q(b.get('flightId') or None)}, "
+                    f"edited_by={q(b.get('editedBy',''))}, edited_at=NOW(), updated_at=NOW() "
+                    f"WHERE id={q(record_id)}"
                 )
                 conn.commit()
                 return ok({'ok': True})
 
             if method == 'DELETE' and record_id:
-                cur.execute(f"UPDATE {SCHEMA}.shipments SET status='not_ready' WHERE id=%s", (record_id,))
-                cur.execute(f"INSERT INTO {SCHEMA}.action_logs (user_id, user_name, action, entity, entity_id) VALUES (%s,%s,%s,%s,%s)",
-                            (user['id'], user['name'], 'Удаление', 'Отправка', record_id))
+                cur.execute(f"UPDATE {SCHEMA}.shipments SET status='not_ready' WHERE id={q(record_id)}")
+                cur.execute(
+                    f"INSERT INTO {SCHEMA}.action_logs (user_id, user_name, action, entity, entity_id) "
+                    f"VALUES ({q(user['id'])},{q(user['name'])},{q('Удаление')},{q('Отправка')},{q(record_id)})"
+                )
                 conn.commit()
                 return ok({'ok': True})
 
@@ -203,10 +207,9 @@ def handler(event: dict, context) -> dict:
                 b = body
                 cur.execute(
                     f"INSERT INTO {SCHEMA}.flights (number, direction, plan_date, fact_date, status) "
-                    f"VALUES (%s,%s,%s,%s,%s) RETURNING id",
-                    (b.get('number',''), b.get('direction','moscow'),
-                     b.get('planDate') or None, b.get('factDate') or None,
-                     b.get('status','planned'))
+                    f"VALUES ({q(b.get('number',''))},{q(b.get('direction','moscow'))},"
+                    f"{q(b.get('planDate') or None)},{q(b.get('factDate') or None)},"
+                    f"{q(b.get('status','planned'))}) RETURNING id"
                 )
                 new_id = cur.fetchone()[0]
                 conn.commit()
@@ -215,10 +218,10 @@ def handler(event: dict, context) -> dict:
             if method == 'PUT' and record_id:
                 b = body
                 cur.execute(
-                    f"UPDATE {SCHEMA}.flights SET number=%s, direction=%s, plan_date=%s, fact_date=%s, status=%s, updated_at=NOW() WHERE id=%s",
-                    (b.get('number',''), b.get('direction','moscow'),
-                     b.get('planDate') or None, b.get('factDate') or None,
-                     b.get('status','planned'), record_id)
+                    f"UPDATE {SCHEMA}.flights SET "
+                    f"number={q(b.get('number',''))}, direction={q(b.get('direction','moscow'))}, "
+                    f"plan_date={q(b.get('planDate') or None)}, fact_date={q(b.get('factDate') or None)}, "
+                    f"status={q(b.get('status','planned'))}, updated_at=NOW() WHERE id={q(record_id)}"
                 )
                 conn.commit()
                 return ok({'ok': True})
@@ -233,9 +236,8 @@ def handler(event: dict, context) -> dict:
                 b = body
                 cur.execute(
                     f"INSERT INTO {SCHEMA}.equipment (number, type, status, location, last_check, comment, size) "
-                    f"VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                    (b.get('number',''), b.get('type','container'), b.get('status','unchecked'),
-                     b.get('location',''), b.get('lastCheck') or None, b.get('comment',''), b.get('size','40HC'))
+                    f"VALUES ({q(b.get('number',''))},{q(b.get('type','container'))},{q(b.get('status','unchecked'))},"
+                    f"{q(b.get('location',''))},{q(b.get('lastCheck') or None)},{q(b.get('comment',''))},{q(b.get('size','40HC'))}) RETURNING id"
                 )
                 new_id = cur.fetchone()[0]
                 conn.commit()
@@ -244,21 +246,20 @@ def handler(event: dict, context) -> dict:
             if method == 'PUT' and record_id:
                 b = body
                 cur.execute(
-                    f"UPDATE {SCHEMA}.equipment SET number=%s, type=%s, status=%s, location=%s, "
-                    f"last_check=%s, comment=%s, size=%s, updated_at=NOW() WHERE id=%s",
-                    (b.get('number',''), b.get('type','container'), b.get('status','unchecked'),
-                     b.get('location',''), b.get('lastCheck') or None, b.get('comment',''),
-                     b.get('size','40HC'), record_id)
+                    f"UPDATE {SCHEMA}.equipment SET "
+                    f"number={q(b.get('number',''))}, type={q(b.get('type','container'))}, status={q(b.get('status','unchecked'))}, "
+                    f"location={q(b.get('location',''))}, last_check={q(b.get('lastCheck') or None)}, "
+                    f"comment={q(b.get('comment',''))}, size={q(b.get('size','40HC'))}, updated_at=NOW() WHERE id={q(record_id)}"
                 )
                 cur.execute(
-                    f"INSERT INTO {SCHEMA}.action_logs (user_id, user_name, action, entity, entity_id) VALUES (%s,%s,%s,%s,%s)",
-                    (user['id'], user['name'], 'Редактирование оборудования', 'Оборудование', record_id)
+                    f"INSERT INTO {SCHEMA}.action_logs (user_id, user_name, action, entity, entity_id) "
+                    f"VALUES ({q(user['id'])},{q(user['name'])},{q('Редактирование оборудования')},{q('Оборудование')},{q(record_id)})"
                 )
                 conn.commit()
                 return ok({'ok': True})
 
             if method == 'DELETE' and record_id:
-                cur.execute(f"UPDATE {SCHEMA}.equipment SET status='broken' WHERE id=%s", (record_id,))
+                cur.execute(f"UPDATE {SCHEMA}.equipment SET status='broken' WHERE id={q(record_id)}")
                 conn.commit()
                 return ok({'ok': True})
 
@@ -278,13 +279,12 @@ def handler(event: dict, context) -> dict:
                     f"INSERT INTO {SCHEMA}.auto_tasks "
                     f"(type, date, container_number, client, carrier, time, address, contact, "
                     f"terminal_from, terminal_to, cargo, temp_mode, status, comment, krk_number) "
-                    f"VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                    (b.get('type','movement'), b.get('date') or None,
-                     b.get('containerNumber',''), b.get('client',''), b.get('carrier',''),
-                     b.get('time',''), b.get('address',''), b.get('contact',''),
-                     b.get('terminalFrom',''), b.get('terminalTo',''),
-                     b.get('cargo',''), b.get('tempMode',''), b.get('status','planned'),
-                     b.get('comment',''), b.get('krkNumber',''))
+                    f"VALUES ({q(b.get('type','movement'))},{q(b.get('date') or None)},"
+                    f"{q(b.get('containerNumber',''))},{q(b.get('client',''))},{q(b.get('carrier',''))},"
+                    f"{q(b.get('time',''))},{q(b.get('address',''))},{q(b.get('contact',''))},"
+                    f"{q(b.get('terminalFrom',''))},{q(b.get('terminalTo',''))},"
+                    f"{q(b.get('cargo',''))},{q(b.get('tempMode',''))},{q(b.get('status','planned'))},"
+                    f"{q(b.get('comment',''))},{q(b.get('krkNumber',''))}) RETURNING id"
                 )
                 new_id = cur.fetchone()[0]
                 conn.commit()
@@ -293,21 +293,21 @@ def handler(event: dict, context) -> dict:
             if method == 'PUT' and record_id:
                 b = body
                 cur.execute(
-                    f"UPDATE {SCHEMA}.auto_tasks SET type=%s, date=%s, container_number=%s, client=%s, "
-                    f"carrier=%s, time=%s, address=%s, contact=%s, terminal_from=%s, terminal_to=%s, "
-                    f"cargo=%s, temp_mode=%s, status=%s, comment=%s, krk_number=%s, updated_at=NOW() WHERE id=%s",
-                    (b.get('type','movement'), b.get('date') or None,
-                     b.get('containerNumber',''), b.get('client',''), b.get('carrier',''),
-                     b.get('time',''), b.get('address',''), b.get('contact',''),
-                     b.get('terminalFrom',''), b.get('terminalTo',''),
-                     b.get('cargo',''), b.get('tempMode',''), b.get('status','planned'),
-                     b.get('comment',''), b.get('krkNumber',''), record_id)
+                    f"UPDATE {SCHEMA}.auto_tasks SET "
+                    f"type={q(b.get('type','movement'))}, date={q(b.get('date') or None)}, "
+                    f"container_number={q(b.get('containerNumber',''))}, client={q(b.get('client',''))}, "
+                    f"carrier={q(b.get('carrier',''))}, time={q(b.get('time',''))}, address={q(b.get('address',''))}, "
+                    f"contact={q(b.get('contact',''))}, terminal_from={q(b.get('terminalFrom',''))}, "
+                    f"terminal_to={q(b.get('terminalTo',''))}, cargo={q(b.get('cargo',''))}, "
+                    f"temp_mode={q(b.get('tempMode',''))}, status={q(b.get('status','planned'))}, "
+                    f"comment={q(b.get('comment',''))}, krk_number={q(b.get('krkNumber',''))}, updated_at=NOW() "
+                    f"WHERE id={q(record_id)}"
                 )
                 conn.commit()
                 return ok({'ok': True})
 
             if method == 'DELETE' and record_id:
-                cur.execute(f"UPDATE {SCHEMA}.auto_tasks SET status='cancelled' WHERE id=%s", (record_id,))
+                cur.execute(f"UPDATE {SCHEMA}.auto_tasks SET status='cancelled' WHERE id={q(record_id)}")
                 conn.commit()
                 return ok({'ok': True})
 
@@ -324,9 +324,8 @@ def handler(event: dict, context) -> dict:
                 b = body
                 cur.execute(
                     f"INSERT INTO {SCHEMA}.action_logs (user_id, user_name, action, entity, entity_id) "
-                    f"VALUES (%s,%s,%s,%s,%s) RETURNING id",
-                    (b.get('userId',''), b.get('userName',''), b.get('action',''),
-                     b.get('entity',''), b.get('entityId',''))
+                    f"VALUES ({q(b.get('userId',''))},{q(b.get('userName',''))},{q(b.get('action',''))},"
+                    f"{q(b.get('entity',''))},{q(b.get('entityId',''))}) RETURNING id"
                 )
                 new_id = cur.fetchone()[0]
                 conn.commit()

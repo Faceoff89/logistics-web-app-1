@@ -1,6 +1,6 @@
 """
 Авторизация и управление пользователями.
-Методы: POST /login, GET /users, POST /users, PUT /users/{id}, POST /users/{id}/deactivate
+Методы: POST /login, GET /users, POST /users, PUT /users/{id}
 """
 import json
 import os
@@ -22,6 +22,11 @@ def get_db():
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
+def q(val):
+    if val is None:
+        return 'NULL'
+    return "'" + str(val).replace("'", "''") + "'"
+
 def ok(data, status=200):
     return {'statusCode': status, 'headers': {**CORS, 'Content-Type': 'application/json'}, 'body': json.dumps(data, ensure_ascii=False, default=str)}
 
@@ -35,8 +40,7 @@ def get_session_user(conn, token: str):
     cur.execute(
         f"SELECT u.id, u.name, u.email, u.role, u.is_active FROM {SCHEMA}.sessions s "
         f"JOIN {SCHEMA}.users u ON u.id = s.user_id "
-        f"WHERE s.token = %s AND s.expires_at > NOW()",
-        (token,)
+        f"WHERE s.token = {q(token)} AND s.expires_at > NOW()"
     )
     row = cur.fetchone()
     if not row:
@@ -67,10 +71,11 @@ def handler(event: dict, context) -> dict:
             if not email or not password:
                 return err('Укажите email и пароль')
 
+            pw_hash = hash_password(password)
             cur = conn.cursor()
             cur.execute(
-                f"SELECT id, name, email, role, is_active FROM {SCHEMA}.users WHERE email = %s AND password_hash = %s",
-                (email, hash_password(password))
+                f"SELECT id, name, email, role, is_active FROM {SCHEMA}.users "
+                f"WHERE email = {q(email)} AND password_hash = {q(pw_hash)}"
             )
             row = cur.fetchone()
             if not row:
@@ -80,10 +85,10 @@ def handler(event: dict, context) -> dict:
 
             user_id = row[0]
             session_token = secrets.token_hex(32)
-            expires = datetime.now(timezone.utc) + timedelta(days=30)
+            expires = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
             cur.execute(
-                f"INSERT INTO {SCHEMA}.sessions (user_id, token, expires_at) VALUES (%s, %s, %s)",
-                (str(user_id), session_token, expires)
+                f"INSERT INTO {SCHEMA}.sessions (user_id, token, expires_at) "
+                f"VALUES ({q(str(user_id))}, {q(session_token)}, {q(expires)})"
             )
             conn.commit()
             return ok({'token': session_token, 'user': {'id': str(row[0]), 'name': row[1], 'email': row[2], 'role': row[3]}})
@@ -92,7 +97,7 @@ def handler(event: dict, context) -> dict:
         if path.endswith('/logout') and method == 'POST':
             if token:
                 cur = conn.cursor()
-                cur.execute(f"UPDATE {SCHEMA}.sessions SET expires_at = NOW() WHERE token = %s", (token,))
+                cur.execute(f"UPDATE {SCHEMA}.sessions SET expires_at = NOW() WHERE token = {q(token)}")
                 conn.commit()
             return ok({'ok': True})
 
@@ -103,7 +108,7 @@ def handler(event: dict, context) -> dict:
                 return err('Не авторизован', 401)
             return ok({'user': user})
 
-        # GET /users — список сотрудников (только для admin/director/manager)
+        # GET /users
         if path.endswith('/users') and method == 'GET':
             user = get_session_user(conn, token)
             if not user:
@@ -116,7 +121,7 @@ def handler(event: dict, context) -> dict:
             users = [{'id': str(r[0]), 'name': r[1], 'email': r[2], 'role': r[3], 'is_active': r[4], 'created_at': str(r[5])} for r in rows]
             return ok({'users': users})
 
-        # POST /users — создать сотрудника (admin/director)
+        # POST /users
         if path.endswith('/users') and method == 'POST':
             user = get_session_user(conn, token)
             if not user:
@@ -132,18 +137,18 @@ def handler(event: dict, context) -> dict:
             if role not in ('logist', 'manager', 'director', 'admin'):
                 return err('Неверная роль')
             cur = conn.cursor()
-            cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE email = %s", (email,))
+            cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE email = {q(email)}")
             if cur.fetchone():
                 return err('Email уже используется')
             cur.execute(
-                f"INSERT INTO {SCHEMA}.users (name, email, password_hash, role) VALUES (%s, %s, %s, %s) RETURNING id",
-                (name, email, hash_password(password), role)
+                f"INSERT INTO {SCHEMA}.users (name, email, password_hash, role) "
+                f"VALUES ({q(name)}, {q(email)}, {q(hash_password(password))}, {q(role)}) RETURNING id"
             )
             new_id = cur.fetchone()[0]
             conn.commit()
             return ok({'id': str(new_id), 'name': name, 'email': email, 'role': role, 'is_active': True}, 201)
 
-        # PUT /users/{id} — обновить данные
+        # PUT /users/{id}
         if '/users/' in path and method == 'PUT':
             user = get_session_user(conn, token)
             if not user:
@@ -151,26 +156,24 @@ def handler(event: dict, context) -> dict:
             if user['role'] not in ('admin', 'director'):
                 return err('Нет доступа', 403)
             target_id = path.split('/users/')[-1].split('/')[0]
-            fields = []
-            vals = []
+            parts = []
             if 'name' in body:
-                fields.append('name = %s'); vals.append(body['name'])
+                parts.append(f"name = {q(body['name'])}")
             if 'email' in body:
-                fields.append('email = %s'); vals.append(body['email'].lower())
+                parts.append(f"email = {q(body['email'].lower())}")
             if 'role' in body:
                 if body['role'] not in ('logist', 'manager', 'director', 'admin'):
                     return err('Неверная роль')
-                fields.append('role = %s'); vals.append(body['role'])
+                parts.append(f"role = {q(body['role'])}")
             if 'password' in body and body['password']:
-                fields.append('password_hash = %s'); vals.append(hash_password(body['password']))
+                parts.append(f"password_hash = {q(hash_password(body['password']))}")
             if 'is_active' in body:
-                fields.append('is_active = %s'); vals.append(bool(body['is_active']))
-            if not fields:
+                parts.append(f"is_active = {'TRUE' if body['is_active'] else 'FALSE'}")
+            if not parts:
                 return err('Нет данных для обновления')
-            fields.append('updated_at = NOW()')
-            vals.append(target_id)
+            parts.append('updated_at = NOW()')
             cur = conn.cursor()
-            cur.execute(f"UPDATE {SCHEMA}.users SET {', '.join(fields)} WHERE id = %s", vals)
+            cur.execute(f"UPDATE {SCHEMA}.users SET {', '.join(parts)} WHERE id = {q(target_id)}")
             conn.commit()
             return ok({'ok': True})
 
