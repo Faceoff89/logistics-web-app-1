@@ -157,8 +157,8 @@ def handler(event: dict, context) -> dict:
 
         if action == 'delete_shipment':
             rid = b.get('id','')
-            cur.execute(f"UPDATE {SCHEMA}.shipments SET status='not_ready' WHERE id={q(rid)}")
             cur.execute(f"INSERT INTO {SCHEMA}.action_logs (user_id, user_name, action, entity, entity_id) VALUES ({q(user['id'])},{q(user['name'])},{q('Удаление')},{q('Отправка')},{q(rid)})")
+            cur.execute(f"DELETE FROM {SCHEMA}.shipments WHERE id={q(rid)}")
             conn.commit()
             return ok({'ok': True})
 
@@ -213,7 +213,7 @@ def handler(event: dict, context) -> dict:
 
         if action == 'delete_equipment':
             rid = b.get('id','')
-            cur.execute(f"UPDATE {SCHEMA}.equipment SET status='broken' WHERE id={q(rid)}")
+            cur.execute(f"DELETE FROM {SCHEMA}.equipment WHERE id={q(rid)}")
             conn.commit()
             return ok({'ok': True})
 
@@ -250,7 +250,7 @@ def handler(event: dict, context) -> dict:
 
         if action == 'delete_auto_task':
             rid = b.get('id','')
-            cur.execute(f"UPDATE {SCHEMA}.auto_tasks SET status='cancelled' WHERE id={q(rid)}")
+            cur.execute(f"DELETE FROM {SCHEMA}.auto_tasks WHERE id={q(rid)}")
             conn.commit()
             return ok({'ok': True})
 
