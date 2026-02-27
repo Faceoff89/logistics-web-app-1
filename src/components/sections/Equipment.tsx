@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 
-const CONTAINER_SIZES = ['20', '40', '40HC', '45'];
 const POWER_TYPES: Record<string, string> = { dgk: 'ДГК', egk: 'ЭГК', ndgu: 'НДГУ' };
 
 const STATUS_COLORS: Record<EquipmentStatus, string> = {
@@ -19,7 +18,6 @@ const STATUS_COLORS: Record<EquipmentStatus, string> = {
   broken: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
 };
 
-// Компонент поля "Терминал" с возможностью выбрать из списка или ввести своё
 function TerminalInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [custom, setCustom] = useState(!TERMINALS.includes(value));
   const selectVal = custom ? '__custom__' : value;
@@ -29,13 +27,8 @@ function TerminalInput({ value, onChange }: { value: string; onChange: (v: strin
       <Select
         value={selectVal}
         onValueChange={v => {
-          if (v === '__custom__') {
-            setCustom(true);
-            onChange('');
-          } else {
-            setCustom(false);
-            onChange(v);
-          }
+          if (v === '__custom__') { setCustom(true); onChange(''); }
+          else { setCustom(false); onChange(v); }
         }}
       >
         <SelectTrigger><SelectValue placeholder="Выберите терминал" /></SelectTrigger>
@@ -45,20 +38,13 @@ function TerminalInput({ value, onChange }: { value: string; onChange: (v: strin
         </SelectContent>
       </Select>
       {custom && (
-        <Input
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder="Название терминала"
-          autoFocus
-        />
+        <Input value={value} onChange={e => onChange(e.target.value)} placeholder="Название терминала" autoFocus />
       )}
     </div>
   );
 }
 
-// Разбор Excel-строк для контейнеров
-// Ожидаемые колонки: Номер, Размер, Статус, Терминал, Комментарий
-function parseContainersXlsx(file: File): Promise<Partial<Eq & { size?: string }>[]> {
+function parseContainersXlsx(file: File): Promise<Partial<Eq>[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = e => {
@@ -71,28 +57,22 @@ function parseContainersXlsx(file: File): Promise<Partial<Eq & { size?: string }
           .filter(r => r['Номер'] || r['номер'] || r['number'] || Object.values(r)[0])
           .map(r => {
             const num = (r['Номер'] || r['номер'] || r['number'] || String(Object.values(r)[0] ?? '')).toString().trim().toUpperCase();
-            const size = (r['Размер'] || r['размер'] || r['size'] || '40HC').toString().trim() || '40HC';
             const statusRaw = (r['Статус'] || r['статус'] || r['status'] || '').toString().toLowerCase();
             const status: EquipmentStatus = statusRaw.includes('испр') || statusRaw === 'broken' ? 'broken'
-              : statusRaw.includes('провер') || statusRaw === 'checked' ? 'checked'
-              : 'unchecked';
+              : statusRaw.includes('провер') || statusRaw === 'checked' ? 'checked' : 'unchecked';
             const location = (r['Терминал'] || r['терминал'] || r['location'] || TERMINALS[0]).toString().trim() || TERMINALS[0];
             const comment = (r['Комментарий'] || r['комментарий'] || r['comment'] || '').toString().trim();
-            return { number: num, size, status, location, comment, type: 'container' as ContainerType };
+            return { number: num, status, location, comment, type: 'container' as ContainerType };
           })
           .filter(r => r.number);
         resolve(result);
-      } catch {
-        reject(new Error('Не удалось прочитать файл'));
-      }
+      } catch { reject(new Error('Не удалось прочитать файл')); }
     };
     reader.onerror = () => reject(new Error('Ошибка чтения файла'));
     reader.readAsArrayBuffer(file);
   });
 }
 
-// Разбор Excel-строк для энергооборудования
-// Ожидаемые колонки: Номер, Тип, Статус, Терминал, Комментарий
 function parseEnergyXlsx(file: File): Promise<Partial<Eq>[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -108,25 +88,37 @@ function parseEnergyXlsx(file: File): Promise<Partial<Eq>[]> {
             const num = (r['Номер'] || r['номер'] || r['number'] || String(Object.values(r)[0] ?? '')).toString().trim().toUpperCase();
             const typeRaw = (r['Тип'] || r['тип'] || r['type'] || 'ДГК').toString().toUpperCase();
             const type: ContainerType = typeRaw.includes('ЭГК') || typeRaw === 'EGK' ? 'egk'
-              : typeRaw.includes('НДГУ') || typeRaw === 'NDGU' ? 'ndgu'
-              : 'dgk';
+              : typeRaw.includes('НДГУ') || typeRaw === 'NDGU' ? 'ndgu' : 'dgk';
             const statusRaw = (r['Статус'] || r['статус'] || r['status'] || '').toString().toLowerCase();
             const status: EquipmentStatus = statusRaw.includes('испр') || statusRaw === 'broken' ? 'broken'
-              : statusRaw.includes('провер') || statusRaw === 'checked' ? 'checked'
-              : 'unchecked';
+              : statusRaw.includes('провер') || statusRaw === 'checked' ? 'checked' : 'unchecked';
             const location = (r['Терминал'] || r['терминал'] || r['location'] || TERMINALS[0]).toString().trim() || TERMINALS[0];
             const comment = (r['Комментарий'] || r['комментарий'] || r['comment'] || '').toString().trim();
             return { number: num, type, status, location, comment };
           })
           .filter(r => r.number);
         resolve(result);
-      } catch {
-        reject(new Error('Не удалось прочитать файл'));
-      }
+      } catch { reject(new Error('Не удалось прочитать файл')); }
     };
     reader.onerror = () => reject(new Error('Ошибка чтения файла'));
     reader.readAsArrayBuffer(file);
   });
+}
+
+function downloadTemplate(type: 'containers' | 'energy') {
+  const wb = XLSX.utils.book_new();
+  const headers = type === 'containers'
+    ? [['Номер', 'Статус', 'Терминал', 'Комментарий'],
+       ['TCKU1234567', 'Проверен', 'ПИК', ''],
+       ['CRXU9876543', 'Не проверен', 'ДТК', 'Требует осмотра'],
+       ['MSCU1112223', 'Неисправен', 'Гамбург', 'Неисправен термостат']]
+    : [['Номер', 'Тип', 'Статус', 'Терминал', 'Комментарий'],
+       ['DGK-003', 'ДГК', 'Проверен', 'ПИК', ''],
+       ['EGK-002', 'ЭГК', 'Не проверен', 'ДТК', ''],
+       ['NDGU-003', 'НДГУ', 'Неисправен', 'Восточный', 'Замена аккумулятора']];
+  const ws = XLSX.utils.aoa_to_sheet(headers);
+  XLSX.utils.book_append_sheet(wb, ws, 'Шаблон');
+  XLSX.writeFile(wb, type === 'containers' ? 'шаблон_контейнеры.xlsx' : 'шаблон_энергооборудование.xlsx');
 }
 
 // ── Вкладка: Контейнеры ──────────────────────────────────────────────────────
@@ -138,13 +130,11 @@ function ContainersTab() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<EquipmentStatus | 'all'>('all');
   const [filterTerminal, setFilterTerminal] = useState('all');
-  const [filterSize, setFilterSize] = useState('all');
   const [addModal, setAddModal] = useState(false);
-  const [newEq, setNewEq] = useState({ number: '', size: '40HC', status: 'unchecked' as EquipmentStatus, location: TERMINALS[0], comment: '' });
+  const [newEq, setNewEq] = useState({ number: '', status: 'unchecked' as EquipmentStatus, location: TERMINALS[0], comment: '' });
 
-  // Импорт Excel
   const [importModal, setImportModal] = useState(false);
-  const [importRows, setImportRows] = useState<Partial<Eq & { size?: string }>[]>([]);
+  const [importRows, setImportRows] = useState<Partial<Eq>[]>([]);
   const [importError, setImportError] = useState('');
   const [importLoading, setImportLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -159,9 +149,8 @@ function ContainersTab() {
     const matchSearch = !q || e.number.toLowerCase().includes(q) || e.location.toLowerCase().includes(q) || (e.comment || '').toLowerCase().includes(q);
     const matchStatus = filterStatus === 'all' || e.status === filterStatus;
     const matchTerminal = filterTerminal === 'all' || e.location === filterTerminal;
-    const matchSize = filterSize === 'all' || (e as Eq & { size?: string }).size === filterSize;
-    return matchSearch && matchStatus && matchTerminal && matchSize;
-  }), [containers, search, filterStatus, filterTerminal, filterSize]);
+    return matchSearch && matchStatus && matchTerminal;
+  }), [containers, search, filterStatus, filterTerminal]);
 
   const terminalSummary = useMemo(() => {
     const map: Record<string, { total: number; checked: number; broken: number }> = {};
@@ -189,51 +178,28 @@ function ContainersTab() {
       location: newEq.location,
       lastCheck: new Date().toISOString().slice(0, 10),
       comment: newEq.comment,
-      ...(newEq.size ? { size: newEq.size } : {}),
-    } as Eq);
+    });
     setAddModal(false);
-    setNewEq({ number: '', size: '40HC', status: 'unchecked', location: TERMINALS[0], comment: '' });
+    setNewEq({ number: '', status: 'unchecked', location: TERMINALS[0], comment: '' });
   };
 
   const handleFileSelect = async (file: File) => {
-    setImportError('');
-    setImportLoading(true);
+    setImportError(''); setImportLoading(true);
     try {
       const rows = await parseContainersXlsx(file);
-      if (!rows.length) {
-        setImportError('Файл не содержит данных. Проверьте заголовки колонок.');
-      } else {
-        setImportRows(rows);
-      }
-    } catch (err: unknown) {
-      setImportError(err instanceof Error ? err.message : 'Ошибка');
-    }
+      if (!rows.length) setImportError('Файл не содержит данных. Проверьте заголовки колонок.');
+      else setImportRows(rows);
+    } catch (err: unknown) { setImportError(err instanceof Error ? err.message : 'Ошибка'); }
     setImportLoading(false);
   };
 
   const handleImportConfirm = () => {
     const today = new Date().toISOString().slice(0, 10);
     importRows.forEach((r, i) => {
-      addEquipment({
-        id: `e${Date.now()}_${i}`,
-        number: r.number!,
-        type: 'container',
-        status: r.status ?? 'unchecked',
-        location: r.location ?? TERMINALS[0],
-        lastCheck: today,
-        comment: r.comment ?? '',
-        ...(r.size ? { size: r.size } : {}),
-      } as Eq);
+      addEquipment({ id: `e${Date.now()}_${i}`, number: r.number!, type: 'container', status: r.status ?? 'unchecked', location: r.location ?? TERMINALS[0], lastCheck: today, comment: r.comment ?? '' });
     });
-    setImportModal(false);
-    setImportRows([]);
+    setImportModal(false); setImportRows([]);
     if (fileRef.current) fileRef.current.value = '';
-  };
-
-  const handleOpenImport = () => {
-    setImportRows([]);
-    setImportError('');
-    setImportModal(true);
   };
 
   const checkedCount = containers.filter(e => e.status === 'checked').length;
@@ -242,7 +208,6 @@ function ContainersTab() {
 
   return (
     <div className="space-y-4">
-      {/* Сводные карточки по терминалам */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {allTerminals.map(term => {
           const s = terminalSummary[term] ?? { total: 0, checked: 0, broken: 0 };
@@ -251,12 +216,8 @@ function ContainersTab() {
             <button
               key={term}
               onClick={() => setFilterTerminal(filterTerminal === term ? 'all' : term)}
-              className={cn(
-                'rounded-xl border p-3 text-left transition-all hover:shadow-sm',
-                filterTerminal === term
-                  ? 'border-primary bg-primary/5 shadow-sm'
-                  : 'border-border bg-card hover:bg-accent/40',
-              )}
+              className={cn('rounded-xl border p-3 text-left transition-all hover:shadow-sm',
+                filterTerminal === term ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-card hover:bg-accent/40')}
             >
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{term}</p>
               <p className="text-2xl font-bold text-foreground mt-1">{s.total}</p>
@@ -278,7 +239,6 @@ function ContainersTab() {
         </div>
       </div>
 
-      {/* Фильтры */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-44">
           <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -298,14 +258,7 @@ function ContainersTab() {
             {allTerminals.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filterSize} onValueChange={setFilterSize}>
-          <SelectTrigger className="w-28 h-8 text-sm"><SelectValue placeholder="Размер" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Все размеры</SelectItem>
-            {CONTAINER_SIZES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Button size="sm" variant="outline" className="h-8" onClick={handleOpenImport}>
+        <Button size="sm" variant="outline" className="h-8" onClick={() => { setImportRows([]); setImportError(''); setImportModal(true); }}>
           <Icon name="FileSpreadsheet" size={14} className="mr-1.5" /> Добавить списком
         </Button>
         <Button size="sm" className="h-8" onClick={() => setAddModal(true)}>
@@ -313,76 +266,47 @@ function ContainersTab() {
         </Button>
       </div>
 
-      {/* Таблица */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-max w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                {['#', 'Номер контейнера', 'Размер', 'Статус', 'Терминал', 'Последняя проверка', 'Комментарий', ''].map(h => (
+                {['#', 'Номер контейнера', 'Статус', 'Терминал', 'Последняя проверка', 'Комментарий', ''].map(h => (
                   <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="text-center py-12 text-muted-foreground">
-                    <Icon name="Inbox" size={28} className="mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">Нет контейнеров</p>
-                  </td>
-                </tr>
+                <tr><td colSpan={7} className="text-center py-12 text-muted-foreground">
+                  <Icon name="Inbox" size={28} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Нет контейнеров</p>
+                </td></tr>
               )}
               {filtered.map((e, idx) => (
                 <tr key={e.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors group">
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{idx + 1}</td>
                   <td className="px-4 py-2.5 font-mono text-xs font-semibold text-foreground tracking-wider">{e.number}</td>
                   <td className="px-4 py-2.5">
-                    <select
-                      value={(e as Eq & { size?: string }).size ?? '40HC'}
-                      onChange={ev => handleUpdate(e.id, { size: ev.target.value } as Partial<Eq>)}
-                      className="text-xs bg-transparent outline-none cursor-pointer text-foreground border rounded px-1.5 py-0.5 border-border"
-                    >
-                      {CONTAINER_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <select
-                      value={e.status}
-                      onChange={ev => handleUpdate(e.id, { status: ev.target.value as EquipmentStatus })}
-                      className={cn('text-xs rounded-full px-2.5 py-0.5 border-0 outline-none cursor-pointer font-medium', STATUS_COLORS[e.status])}
-                    >
+                    <select value={e.status} onChange={ev => handleUpdate(e.id, { status: ev.target.value as EquipmentStatus })}
+                      className={cn('text-xs rounded-full px-2.5 py-0.5 border-0 outline-none cursor-pointer font-medium', STATUS_COLORS[e.status])}>
                       {Object.entries(EQUIPMENT_STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
                   </td>
                   <td className="px-4 py-2.5">
-                    <input
-                      value={e.location}
-                      onChange={ev => handleUpdate(e.id, { location: ev.target.value })}
-                      className="text-sm bg-transparent outline-none text-foreground border-b border-transparent hover:border-muted-foreground/30 focus:border-primary transition-colors w-28"
-                    />
+                    <input value={e.location} onChange={ev => handleUpdate(e.id, { location: ev.target.value })}
+                      className="text-sm bg-transparent outline-none text-foreground border-b border-transparent hover:border-muted-foreground/30 focus:border-primary transition-colors w-28" />
                   </td>
                   <td className="px-4 py-2.5">
-                    <input
-                      type="date"
-                      defaultValue={e.lastCheck}
-                      onBlur={ev => handleUpdate(e.id, { lastCheck: ev.target.value })}
-                      className="text-xs text-muted-foreground bg-transparent outline-none cursor-pointer hover:text-foreground"
-                    />
+                    <input type="date" defaultValue={e.lastCheck} onBlur={ev => handleUpdate(e.id, { lastCheck: ev.target.value })}
+                      className="text-xs text-muted-foreground bg-transparent outline-none cursor-pointer hover:text-foreground" />
                   </td>
                   <td className="px-4 py-2.5 max-w-xs">
-                    <input
-                      defaultValue={e.comment}
-                      onBlur={ev => handleUpdate(e.id, { comment: ev.target.value })}
-                      placeholder="—"
-                      className="bg-transparent outline-none w-full text-sm hover:border-b hover:border-muted-foreground/30 focus:border-b focus:border-primary transition-colors text-foreground placeholder:text-muted-foreground/30"
-                    />
+                    <input defaultValue={e.comment} onBlur={ev => handleUpdate(e.id, { comment: ev.target.value })} placeholder="—"
+                      className="bg-transparent outline-none w-full text-sm hover:border-b hover:border-muted-foreground/30 focus:border-b focus:border-primary transition-colors text-foreground placeholder:text-muted-foreground/30" />
                   </td>
                   <td className="px-4 py-2.5">
-                    <button
-                      onClick={() => deleteEquipment(e.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                    >
+                    <button onClick={() => deleteEquipment(e.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
                       <Icon name="Trash2" size={14} />
                     </button>
                   </td>
@@ -401,35 +325,21 @@ function ContainersTab() {
         </div>
       </div>
 
-      {/* Модальное окно — добавить один */}
+      {/* Добавить один */}
       <Dialog open={addModal} onOpenChange={setAddModal}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Добавить контейнер</DialogTitle></DialogHeader>
           <div className="space-y-3 mt-2">
             <div className="space-y-1">
               <Label>Номер контейнера <span className="text-red-500">*</span></Label>
-              <Input
-                value={newEq.number}
-                onChange={e => setNewEq({ ...newEq, number: e.target.value })}
-                placeholder="TCKU3456789"
-                className="font-mono uppercase"
-              />
+              <Input value={newEq.number} onChange={e => setNewEq({ ...newEq, number: e.target.value })} placeholder="TCKU3456789" className="font-mono uppercase" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Размер</Label>
-                <Select value={newEq.size} onValueChange={v => setNewEq({ ...newEq, size: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{CONTAINER_SIZES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Статус</Label>
-                <Select value={newEq.status} onValueChange={v => setNewEq({ ...newEq, status: v as EquipmentStatus })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{Object.entries(EQUIPMENT_STATUS_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1">
+              <Label>Статус</Label>
+              <Select value={newEq.status} onValueChange={v => setNewEq({ ...newEq, status: v as EquipmentStatus })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{Object.entries(EQUIPMENT_STATUS_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label>Терминал</Label>
@@ -447,35 +357,37 @@ function ContainersTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Модальное окно — импорт Excel */}
+      {/* Импорт Excel */}
       <Dialog open={importModal} onOpenChange={v => { setImportModal(v); if (!v) { setImportRows([]); setImportError(''); } }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Добавить контейнеры списком (Excel)</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border">
+              <div>
+                <p className="text-sm font-medium text-foreground">Нет своего файла?</p>
+                <p className="text-xs text-muted-foreground">Скачайте шаблон с примерами</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => downloadTemplate('containers')}>
+                <Icon name="Download" size={14} className="mr-1.5" /> Скачать шаблон
+              </Button>
+            </div>
+
             <div className="rounded-lg border-2 border-dashed border-border p-6 text-center space-y-3">
               <Icon name="FileSpreadsheet" size={32} className="mx-auto text-muted-foreground opacity-60" />
               <div>
                 <p className="text-sm font-medium text-foreground">Загрузите файл Excel (.xlsx, .xls)</p>
-                <p className="text-xs text-muted-foreground mt-1">Колонки: <span className="font-mono">Номер, Размер, Статус, Терминал, Комментарий</span></p>
+                <p className="text-xs text-muted-foreground mt-1">Колонки: <span className="font-mono">Номер, Статус, Терминал, Комментарий</span></p>
                 <p className="text-xs text-muted-foreground">Статус: «Проверен», «Не проверен», «Неисправен»</p>
               </div>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={e => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-              />
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden"
+                onChange={e => e.target.files?.[0] && handleFileSelect(e.target.files[0])} />
               <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={importLoading}>
-                <Icon name="Upload" size={14} className="mr-1.5" />
-                {importLoading ? 'Загрузка...' : 'Выбрать файл'}
+                <Icon name="Upload" size={14} className="mr-1.5" /> {importLoading ? 'Загрузка...' : 'Выбрать файл'}
               </Button>
             </div>
 
             {importError && (
-              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-300">
-                {importError}
-              </div>
+              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-300">{importError}</div>
             )}
 
             {importRows.length > 0 && (
@@ -484,17 +396,14 @@ function ContainersTab() {
                 <div className="max-h-56 overflow-y-auto rounded-lg border border-border">
                   <table className="w-full text-xs">
                     <thead className="bg-muted/50 sticky top-0">
-                      <tr>
-                        {['Номер', 'Размер', 'Статус', 'Терминал', 'Комментарий'].map(h => (
-                          <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground">{h}</th>
-                        ))}
-                      </tr>
+                      <tr>{['Номер', 'Статус', 'Терминал', 'Комментарий'].map(h => (
+                        <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground">{h}</th>
+                      ))}</tr>
                     </thead>
                     <tbody>
                       {importRows.map((r, i) => (
                         <tr key={i} className="border-t border-border hover:bg-muted/30">
                           <td className="px-3 py-1.5 font-mono font-semibold">{r.number}</td>
-                          <td className="px-3 py-1.5">{r.size}</td>
                           <td className="px-3 py-1.5">{EQUIPMENT_STATUS_LABEL[r.status ?? 'unchecked']}</td>
                           <td className="px-3 py-1.5">{r.location}</td>
                           <td className="px-3 py-1.5 text-muted-foreground">{r.comment}</td>
@@ -531,7 +440,6 @@ function EnergyTab() {
   const [addModal, setAddModal] = useState(false);
   const [newEq, setNewEq] = useState({ number: '', type: 'dgk' as 'dgk' | 'egk' | 'ndgu', status: 'unchecked' as EquipmentStatus, location: TERMINALS[0], comment: '' });
 
-  // Импорт Excel
   const [importModal, setImportModal] = useState(false);
   const [importRows, setImportRows] = useState<Partial<Eq>[]>([]);
   const [importError, setImportError] = useState('');
@@ -559,57 +467,28 @@ function EnergyTab() {
 
   const handleAdd = () => {
     if (!newEq.number.trim()) return;
-    addEquipment({
-      id: `e${Date.now()}`,
-      number: newEq.number.trim().toUpperCase(),
-      type: newEq.type,
-      status: newEq.status,
-      location: newEq.location,
-      lastCheck: new Date().toISOString().slice(0, 10),
-      comment: newEq.comment,
-    });
+    addEquipment({ id: `e${Date.now()}`, number: newEq.number.trim().toUpperCase(), type: newEq.type, status: newEq.status, location: newEq.location, lastCheck: new Date().toISOString().slice(0, 10), comment: newEq.comment });
     setAddModal(false);
     setNewEq({ number: '', type: 'dgk', status: 'unchecked', location: TERMINALS[0], comment: '' });
   };
 
   const handleFileSelect = async (file: File) => {
-    setImportError('');
-    setImportLoading(true);
+    setImportError(''); setImportLoading(true);
     try {
       const rows = await parseEnergyXlsx(file);
-      if (!rows.length) {
-        setImportError('Файл не содержит данных. Проверьте заголовки колонок.');
-      } else {
-        setImportRows(rows);
-      }
-    } catch (err: unknown) {
-      setImportError(err instanceof Error ? err.message : 'Ошибка');
-    }
+      if (!rows.length) setImportError('Файл не содержит данных. Проверьте заголовки колонок.');
+      else setImportRows(rows);
+    } catch (err: unknown) { setImportError(err instanceof Error ? err.message : 'Ошибка'); }
     setImportLoading(false);
   };
 
   const handleImportConfirm = () => {
     const today = new Date().toISOString().slice(0, 10);
     importRows.forEach((r, i) => {
-      addEquipment({
-        id: `e${Date.now()}_${i}`,
-        number: r.number!,
-        type: r.type ?? 'dgk',
-        status: r.status ?? 'unchecked',
-        location: r.location ?? TERMINALS[0],
-        lastCheck: today,
-        comment: r.comment ?? '',
-      });
+      addEquipment({ id: `e${Date.now()}_${i}`, number: r.number!, type: r.type ?? 'dgk', status: r.status ?? 'unchecked', location: r.location ?? TERMINALS[0], lastCheck: today, comment: r.comment ?? '' });
     });
-    setImportModal(false);
-    setImportRows([]);
+    setImportModal(false); setImportRows([]);
     if (fileRef.current) fileRef.current.value = '';
-  };
-
-  const handleOpenImport = () => {
-    setImportRows([]);
-    setImportError('');
-    setImportModal(true);
   };
 
   const dgkCount = energyItems.filter(e => e.type === 'dgk').length;
@@ -618,15 +497,12 @@ function EnergyTab() {
 
   const terminalSummary = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const e of energyItems) {
-      map[e.location] = (map[e.location] ?? 0) + 1;
-    }
+    for (const e of energyItems) map[e.location] = (map[e.location] ?? 0) + 1;
     return map;
   }, [energyItems]);
 
   return (
     <div className="space-y-4">
-      {/* Сводные карточки */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="rounded-xl border border-border bg-card p-4 space-y-1">
           <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">ДГК</p>
@@ -650,7 +526,6 @@ function EnergyTab() {
         </div>
       </div>
 
-      {/* Разбивка по терминалам */}
       {Object.keys(terminalSummary).length > 0 && (
         <div className="flex flex-wrap gap-2">
           {Object.entries(terminalSummary).map(([term, cnt]) => (
@@ -661,7 +536,6 @@ function EnergyTab() {
         </div>
       )}
 
-      {/* Фильтры */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-44">
           <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -690,7 +564,7 @@ function EnergyTab() {
             {allTerminals.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button size="sm" variant="outline" className="h-8" onClick={handleOpenImport}>
+        <Button size="sm" variant="outline" className="h-8" onClick={() => { setImportRows([]); setImportError(''); setImportModal(true); }}>
           <Icon name="FileSpreadsheet" size={14} className="mr-1.5" /> Добавить списком
         </Button>
         <Button size="sm" className="h-8 ml-auto" onClick={() => setAddModal(true)}>
@@ -698,7 +572,6 @@ function EnergyTab() {
         </Button>
       </div>
 
-      {/* Таблица */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-max w-full text-sm">
@@ -711,65 +584,43 @@ function EnergyTab() {
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="text-center py-12 text-muted-foreground">
-                    <Icon name="Inbox" size={28} className="mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">Нет записей</p>
-                  </td>
-                </tr>
+                <tr><td colSpan={8} className="text-center py-12 text-muted-foreground">
+                  <Icon name="Inbox" size={28} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Нет записей</p>
+                </td></tr>
               )}
               {filtered.map((e, idx) => (
                 <tr key={e.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors group">
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{idx + 1}</td>
                   <td className="px-4 py-2.5 font-mono text-xs font-semibold text-foreground tracking-wider">{e.number}</td>
                   <td className="px-4 py-2.5">
-                    <select
-                      value={e.type}
-                      onChange={ev => handleUpdate(e.id, { type: ev.target.value as ContainerType })}
-                      className="text-xs bg-transparent outline-none cursor-pointer text-foreground border rounded px-1.5 py-0.5 border-border"
-                    >
+                    <select value={e.type} onChange={ev => handleUpdate(e.id, { type: ev.target.value as ContainerType })}
+                      className="text-xs bg-transparent outline-none cursor-pointer text-foreground border rounded px-1.5 py-0.5 border-border">
                       <option value="dgk">ДГК</option>
                       <option value="egk">ЭГК</option>
                       <option value="ndgu">НДГУ</option>
                     </select>
                   </td>
                   <td className="px-4 py-2.5">
-                    <select
-                      value={e.status}
-                      onChange={ev => handleUpdate(e.id, { status: ev.target.value as EquipmentStatus })}
-                      className={cn('text-xs rounded-full px-2.5 py-0.5 border-0 outline-none cursor-pointer font-medium', STATUS_COLORS[e.status])}
-                    >
+                    <select value={e.status} onChange={ev => handleUpdate(e.id, { status: ev.target.value as EquipmentStatus })}
+                      className={cn('text-xs rounded-full px-2.5 py-0.5 border-0 outline-none cursor-pointer font-medium', STATUS_COLORS[e.status])}>
                       {Object.entries(EQUIPMENT_STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
                   </td>
                   <td className="px-4 py-2.5">
-                    <input
-                      value={e.location}
-                      onChange={ev => handleUpdate(e.id, { location: ev.target.value })}
-                      className="text-sm bg-transparent outline-none text-foreground border-b border-transparent hover:border-muted-foreground/30 focus:border-primary transition-colors w-28"
-                    />
+                    <input value={e.location} onChange={ev => handleUpdate(e.id, { location: ev.target.value })}
+                      className="text-sm bg-transparent outline-none text-foreground border-b border-transparent hover:border-muted-foreground/30 focus:border-primary transition-colors w-28" />
                   </td>
                   <td className="px-4 py-2.5">
-                    <input
-                      type="date"
-                      defaultValue={e.lastCheck}
-                      onBlur={ev => handleUpdate(e.id, { lastCheck: ev.target.value })}
-                      className="text-xs text-muted-foreground bg-transparent outline-none cursor-pointer hover:text-foreground"
-                    />
+                    <input type="date" defaultValue={e.lastCheck} onBlur={ev => handleUpdate(e.id, { lastCheck: ev.target.value })}
+                      className="text-xs text-muted-foreground bg-transparent outline-none cursor-pointer hover:text-foreground" />
                   </td>
                   <td className="px-4 py-2.5 max-w-xs">
-                    <input
-                      defaultValue={e.comment}
-                      onBlur={ev => handleUpdate(e.id, { comment: ev.target.value })}
-                      placeholder="—"
-                      className="bg-transparent outline-none w-full text-sm hover:border-b hover:border-muted-foreground/30 focus:border-b focus:border-primary transition-colors text-foreground placeholder:text-muted-foreground/30"
-                    />
+                    <input defaultValue={e.comment} onBlur={ev => handleUpdate(e.id, { comment: ev.target.value })} placeholder="—"
+                      className="bg-transparent outline-none w-full text-sm hover:border-b hover:border-muted-foreground/30 focus:border-b focus:border-primary transition-colors text-foreground placeholder:text-muted-foreground/30" />
                   </td>
                   <td className="px-4 py-2.5">
-                    <button
-                      onClick={() => deleteEquipment(e.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                    >
+                    <button onClick={() => deleteEquipment(e.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
                       <Icon name="Trash2" size={14} />
                     </button>
                   </td>
@@ -783,7 +634,7 @@ function EnergyTab() {
         </div>
       </div>
 
-      {/* Модальное окно — добавить один */}
+      {/* Добавить один */}
       <Dialog open={addModal} onOpenChange={setAddModal}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Добавить оборудование</DialogTitle></DialogHeader>
@@ -828,11 +679,21 @@ function EnergyTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Модальное окно — импорт Excel */}
+      {/* Импорт Excel */}
       <Dialog open={importModal} onOpenChange={v => { setImportModal(v); if (!v) { setImportRows([]); setImportError(''); } }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Добавить оборудование списком (Excel)</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border">
+              <div>
+                <p className="text-sm font-medium text-foreground">Нет своего файла?</p>
+                <p className="text-xs text-muted-foreground">Скачайте шаблон с примерами</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => downloadTemplate('energy')}>
+                <Icon name="Download" size={14} className="mr-1.5" /> Скачать шаблон
+              </Button>
+            </div>
+
             <div className="rounded-lg border-2 border-dashed border-border p-6 text-center space-y-3">
               <Icon name="FileSpreadsheet" size={32} className="mx-auto text-muted-foreground opacity-60" />
               <div>
@@ -840,23 +701,15 @@ function EnergyTab() {
                 <p className="text-xs text-muted-foreground mt-1">Колонки: <span className="font-mono">Номер, Тип, Статус, Терминал, Комментарий</span></p>
                 <p className="text-xs text-muted-foreground">Тип: «ДГК», «ЭГК», «НДГУ» · Статус: «Проверен», «Не проверен», «Неисправен»</p>
               </div>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={e => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-              />
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden"
+                onChange={e => e.target.files?.[0] && handleFileSelect(e.target.files[0])} />
               <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={importLoading}>
-                <Icon name="Upload" size={14} className="mr-1.5" />
-                {importLoading ? 'Загрузка...' : 'Выбрать файл'}
+                <Icon name="Upload" size={14} className="mr-1.5" /> {importLoading ? 'Загрузка...' : 'Выбрать файл'}
               </Button>
             </div>
 
             {importError && (
-              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-300">
-                {importError}
-              </div>
+              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-300">{importError}</div>
             )}
 
             {importRows.length > 0 && (
@@ -865,11 +718,9 @@ function EnergyTab() {
                 <div className="max-h-56 overflow-y-auto rounded-lg border border-border">
                   <table className="w-full text-xs">
                     <thead className="bg-muted/50 sticky top-0">
-                      <tr>
-                        {['Номер', 'Тип', 'Статус', 'Терминал', 'Комментарий'].map(h => (
-                          <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground">{h}</th>
-                        ))}
-                      </tr>
+                      <tr>{['Номер', 'Тип', 'Статус', 'Терминал', 'Комментарий'].map(h => (
+                        <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground">{h}</th>
+                      ))}</tr>
                     </thead>
                     <tbody>
                       {importRows.map((r, i) => (
@@ -915,14 +766,9 @@ export default function EquipmentSection() {
         </div>
       </div>
 
-      {/* Переключатель вкладок */}
       <div className="flex gap-2 border-b border-border">
-        <TabButton active={tab === 'containers'} onClick={() => setTab('containers')} icon="Container">
-          Контейнеры
-        </TabButton>
-        <TabButton active={tab === 'energy'} onClick={() => setTab('energy')} icon="Zap">
-          Энергия
-        </TabButton>
+        <TabButton active={tab === 'containers'} onClick={() => setTab('containers')} icon="Container">Контейнеры</TabButton>
+        <TabButton active={tab === 'energy'} onClick={() => setTab('energy')} icon="Zap">Энергия</TabButton>
       </div>
 
       {tab === 'containers' && <ContainersTab />}
@@ -933,15 +779,8 @@ export default function EquipmentSection() {
 
 function TabButton({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: string; children: React.ReactNode }) {
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
-        active
-          ? 'border-primary text-primary'
-          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
-      )}
-    >
+    <button onClick={onClick} className={cn('flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+      active ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border')}>
       <Icon name={icon} size={15} />
       {children}
     </button>
