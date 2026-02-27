@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Component, ReactNode } from 'react';
 import { useAppStore } from '@/store/appStore';
 import LoginPage from '@/components/LoginPage';
 import Sidebar from '@/components/Sidebar';
@@ -12,6 +12,38 @@ import Requests from '@/components/sections/Requests';
 import Accounts from '@/components/sections/Accounts';
 import Reports from '@/components/sections/Reports';
 import { cn } from '@/lib/utils';
+
+class SectionErrorBoundary extends Component<{ children: ReactNode; section: string }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode; section: string }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromProps(_: unknown, state: { hasError: boolean }) {
+    return state;
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidUpdate(prevProps: { section: string }) {
+    if (prevProps.section !== this.props.section && this.state.hasError) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
+          <p className="text-sm">Не удалось загрузить раздел. Попробуйте обновить страницу.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function Index() {
   const { currentUser, section, sidebarOpen, restoreSession } = useAppStore();
@@ -43,16 +75,18 @@ export default function Index() {
       )}>
         <TopBar />
         <main className="flex-1 p-4 lg:p-6 overflow-auto">
-          <div className="animate-fade-in">
-            {section === 'dashboard' && <Dashboard />}
-            {section === 'planning-rail' && <PlanningRail />}
-            {section === 'planning-auto' && <PlanningAuto />}
-            {section === 'flights-rail' && <FlightsRail />}
-            {section === 'equipment' && <EquipmentSection />}
-            {section === 'requests' && <Requests />}
-            {section === 'accounts' && <Accounts />}
-            {section === 'reports' && <Reports />}
-          </div>
+          <SectionErrorBoundary section={section}>
+            <div className="animate-fade-in">
+              {section === 'dashboard' && <Dashboard />}
+              {section === 'planning-rail' && <PlanningRail />}
+              {section === 'planning-auto' && <PlanningAuto />}
+              {section === 'flights-rail' && <FlightsRail />}
+              {section === 'equipment' && <EquipmentSection />}
+              {section === 'requests' && <Requests />}
+              {section === 'accounts' && <Accounts />}
+              {section === 'reports' && <Reports />}
+            </div>
+          </SectionErrorBoundary>
         </main>
       </div>
     </div>

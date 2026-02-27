@@ -122,7 +122,7 @@ function NavBtn({ item, active, collapsed, onClick }: { item: NavItem; active: b
       onClick={onClick}
       title={collapsed ? item.label : undefined}
       className={cn(
-        'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+        'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors outline-none focus:outline-none',
         active
           ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
           : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
