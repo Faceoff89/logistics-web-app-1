@@ -115,7 +115,7 @@ export default function Requests() {
               <Select value={form.flightId} onValueChange={v => setForm({ ...form, flightId: v })}>
                 <SelectTrigger><SelectValue placeholder="Выберите рейс" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Без рейса</SelectItem>
+                  <SelectItem value="none">Без рейса</SelectItem>
                   {flights.map(f => <SelectItem key={f.id} value={f.id}>{f.number}</SelectItem>)}
                 </SelectContent>
               </Select>

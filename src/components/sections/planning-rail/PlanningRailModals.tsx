@@ -166,7 +166,7 @@ export function AddShipmentModal({ open, onClose, flightId, nextNumber }: { open
             <Select value={form.flightId} onValueChange={v => set('flightId', v)}>
               <SelectTrigger><SelectValue placeholder="Выбрать рейс" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Без рейса</SelectItem>
+                <SelectItem value="none">Без рейса</SelectItem>
                 {flights.map(f => <SelectItem key={f.id} value={f.id}>{f.number}</SelectItem>)}
               </SelectContent>
             </Select>
