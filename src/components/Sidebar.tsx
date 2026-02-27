@@ -56,8 +56,8 @@ export default function Sidebar() {
         sidebarOpen ? 'w-60' : 'w-0 lg:w-16 overflow-hidden',
       )}>
         <div className="flex items-center gap-3 px-4 h-14 border-b border-sidebar-border shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
-            <Icon name="Star" size={16} className="text-sidebar-primary-foreground" />
+          <div className="w-8 h-8 flex items-center justify-center shrink-0">
+            <img src="https://cdn.poehali.dev/projects/0aa0d198-0feb-42ce-b7f1-ebc1890de260/bucket/fc4da3cf-da71-492b-acb1-5cd2a3aa0462.svg" alt="Логотип" className="w-8 h-8 object-contain" />
           </div>
           {sidebarOpen && (
             <div className="overflow-hidden">

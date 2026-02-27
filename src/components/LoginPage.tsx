@@ -25,8 +25,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
       <div className="w-full max-w-sm animate-fade-in">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary text-primary-foreground mb-4 shadow-lg">
-            <Icon name="Star" size={28} />
+          <div className="mb-4">
+            <img src="https://cdn.poehali.dev/projects/0aa0d198-0feb-42ce-b7f1-ebc1890de260/bucket/fc4da3cf-da71-492b-acb1-5cd2a3aa0462.svg" alt="Логотип" className="h-16 mx-auto" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Полярная Звезда</h1>
           <p className="text-sm text-muted-foreground mt-1">Система управления логистикой</p>
