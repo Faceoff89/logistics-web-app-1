@@ -12,6 +12,7 @@ import EquipmentSection from '@/components/sections/Equipment';
 import Requests from '@/components/sections/Requests';
 import Accounts from '@/components/sections/Accounts';
 import Reports from '@/components/sections/Reports';
+import Database from '@/components/sections/Database';
 import { cn } from '@/lib/utils';
 
 class SectionErrorBoundary extends Component<{ children: ReactNode; section: string }, { hasError: boolean }> {
@@ -87,6 +88,7 @@ export default function Index() {
               {section === 'requests' && <Requests />}
               {section === 'accounts' && <Accounts />}
               {section === 'reports' && <Reports />}
+              {section === 'database' && <Database />}
             </div>
           </SectionErrorBoundary>
         </main>

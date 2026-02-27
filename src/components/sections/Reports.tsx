@@ -62,8 +62,9 @@ export default function Reports() {
           </h3>
           <StatRow label="Всего единиц" value={equipment.length} />
           <StatRow label="Контейнеры" value={equipment.filter(e => e.type === 'container').length} />
-          <StatRow label="ДГК / ЭГК" value={equipment.filter(e => e.type === 'dgk').length} />
-          <StatRow label="Дженсеты" value={equipment.filter(e => e.type === 'genset').length} />
+          <StatRow label="ДГК" value={equipment.filter(e => e.type === 'dgk').length} />
+          <StatRow label="ЭГК" value={equipment.filter(e => e.type === 'egk').length} />
+          <StatRow label="НДГУ" value={equipment.filter(e => e.type === 'ndgu').length} />
           <StatRow label="Проверено" value={equipment.filter(e => e.status === 'checked').length} color="text-emerald-600" />
           <StatRow label="Неисправно" value={equipment.filter(e => e.status === 'broken').length} color="text-red-600" />
         </div>

@@ -23,7 +23,8 @@ export default function Dashboard() {
 
   const totalContainers = equipment.filter(e => e.type === 'container').length;
   const totalDgk = equipment.filter(e => e.type === 'dgk').length;
-  const totalGenset = equipment.filter(e => e.type === 'genset').length;
+  const totalEgk = equipment.filter(e => e.type === 'egk').length;
+  const totalNdgu = equipment.filter(e => e.type === 'ndgu').length;
 
   const checked = equipment.filter(e => e.status === 'checked').length;
   const unchecked = equipment.filter(e => e.status === 'unchecked').length;
@@ -49,10 +50,11 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <h2 className="text-base font-semibold text-foreground mb-3">Парк оборудования</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <MetricCard title="Контейнеры" value={totalContainers} sub="рефрижераторных" icon="Container" color="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400" />
-          <MetricCard title="ДГК / ЭГК" value={totalDgk} sub="дизель/электрогенераторы" icon="Zap" color="bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400" />
-          <MetricCard title="Дженсеты" value={totalGenset} sub="генераторных блоков" icon="Battery" color="bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400" />
+          <MetricCard title="ДГК" value={totalDgk} sub="дизельные генераторы" icon="Zap" color="bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400" />
+          <MetricCard title="ЭГК" value={totalEgk} sub="электрогенераторы" icon="Zap" color="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400" />
+          <MetricCard title="НДГУ" value={totalNdgu} sub="независимые устройства" icon="Battery" color="bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400" />
           <MetricCard title="Всего единиц" value={total} sub="в парке" icon="Package" color="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400" />
         </div>
       </div>

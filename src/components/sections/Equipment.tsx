@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 
 const CONTAINER_SIZES = ['20', '40', '40HC', '45'];
-const POWER_TYPES: Record<string, string> = { dgk: 'ДГК / ЭГК', genset: 'Дженсет' };
+const POWER_TYPES: Record<string, string> = { dgk: 'ДГК', egk: 'ЭГК', ndgu: 'НДГУ' };
 
 const STATUS_COLORS: Record<EquipmentStatus, string> = {
   checked: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
@@ -292,14 +292,14 @@ function ContainersTab() {
 
 function EnergyTab() {
   const { equipment, updateEquipment, addEquipment, deleteEquipment, currentUser } = useAppStore();
-  const energyItems = equipment.filter(e => e.type === 'dgk' || e.type === 'genset');
+  const energyItems = equipment.filter(e => e.type === 'dgk' || e.type === 'egk' || e.type === 'ndgu');
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<EquipmentStatus | 'all'>('all');
   const [filterTerminal, setFilterTerminal] = useState('all');
-  const [filterType, setFilterType] = useState<'all' | 'dgk' | 'genset'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'dgk' | 'egk' | 'ndgu'>('all');
   const [addModal, setAddModal] = useState(false);
-  const [newEq, setNewEq] = useState({ number: '', type: 'dgk' as 'dgk' | 'genset', status: 'unchecked' as EquipmentStatus, location: 'ПИК', comment: '' });
+  const [newEq, setNewEq] = useState({ number: '', type: 'dgk' as 'dgk' | 'egk' | 'ndgu', status: 'unchecked' as EquipmentStatus, location: 'ПИК', comment: '' });
 
   const filtered = useMemo(() => energyItems.filter(e => {
     const q = search.toLowerCase();
@@ -309,6 +309,7 @@ function EnergyTab() {
     const matchType = filterType === 'all' || e.type === filterType;
     return matchSearch && matchStatus && matchTerminal && matchType;
   }), [energyItems, search, filterStatus, filterTerminal, filterType]);
+
 
   const handleUpdate = (id: string, data: Partial<Eq>) => {
     if (!currentUser) return;
@@ -331,7 +332,8 @@ function EnergyTab() {
   };
 
   const dgkCount = energyItems.filter(e => e.type === 'dgk').length;
-  const gensetCount = energyItems.filter(e => e.type === 'genset').length;
+  const egkCount = energyItems.filter(e => e.type === 'egk').length;
+  const ndguCount = energyItems.filter(e => e.type === 'ndgu').length;
 
   // Сводка по терминалам для энергии
   const terminalSummary = useMemo(() => {
@@ -345,14 +347,18 @@ function EnergyTab() {
   return (
     <div className="space-y-4">
       {/* Сводные карточки */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="rounded-xl border border-border bg-card p-4 space-y-1">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">ДГК / ЭГК</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">ДГК</p>
           <p className="text-3xl font-bold text-foreground">{dgkCount}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4 space-y-1">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Дженсеты</p>
-          <p className="text-3xl font-bold text-foreground">{gensetCount}</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">ЭГК</p>
+          <p className="text-3xl font-bold text-foreground">{egkCount}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4 space-y-1">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">НДГУ</p>
+          <p className="text-3xl font-bold text-foreground">{ndguCount}</p>
         </div>
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 p-4 space-y-1">
           <p className="text-xs text-emerald-700 dark:text-emerald-300 uppercase tracking-wide font-semibold">Проверено</p>
@@ -381,12 +387,13 @@ function EnergyTab() {
           <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск по номеру..." className="pl-8 h-8 text-sm" />
         </div>
-        <Select value={filterType} onValueChange={v => setFilterType(v as 'all' | 'dgk' | 'genset')}>
+        <Select value={filterType} onValueChange={v => setFilterType(v as 'all' | 'dgk' | 'egk' | 'ndgu')}>
           <SelectTrigger className="w-36 h-8 text-sm"><SelectValue placeholder="Тип" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Все типы</SelectItem>
-            <SelectItem value="dgk">ДГК / ЭГК</SelectItem>
-            <SelectItem value="genset">Дженсет</SelectItem>
+            <SelectItem value="dgk">ДГК</SelectItem>
+            <SelectItem value="egk">ЭГК</SelectItem>
+            <SelectItem value="ndgu">НДГУ</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterStatus} onValueChange={v => setFilterStatus(v as EquipmentStatus | 'all')}>
@@ -438,8 +445,9 @@ function EnergyTab() {
                       onChange={ev => handleUpdate(e.id, { type: ev.target.value as ContainerType })}
                       className="text-xs bg-transparent outline-none cursor-pointer text-foreground border rounded px-1.5 py-0.5 border-border"
                     >
-                      <option value="dgk">ДГК / ЭГК</option>
-                      <option value="genset">Дженсет</option>
+                      <option value="dgk">ДГК</option>
+                      <option value="egk">ЭГК</option>
+                      <option value="ndgu">НДГУ</option>
                     </select>
                   </td>
                   <td className="px-4 py-2.5">
@@ -505,11 +513,12 @@ function EnergyTab() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Тип</Label>
-                <Select value={newEq.type} onValueChange={v => setNewEq({ ...newEq, type: v as 'dgk' | 'genset' })}>
+                <Select value={newEq.type} onValueChange={v => setNewEq({ ...newEq, type: v as 'dgk' | 'egk' | 'ndgu' })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="dgk">ДГК / ЭГК</SelectItem>
-                    <SelectItem value="genset">Дженсет</SelectItem>
+                    <SelectItem value="dgk">ДГК</SelectItem>
+                    <SelectItem value="egk">ЭГК</SelectItem>
+                    <SelectItem value="ndgu">НДГУ</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

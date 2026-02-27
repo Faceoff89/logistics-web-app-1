@@ -9,6 +9,7 @@ const SECTION_TITLES: Record<string, string> = {
   requests: 'Заявки',
   accounts: 'Учётные записи',
   reports: 'Отчёты',
+  database: 'База данных',
 };
 
 export default function TopBar() {

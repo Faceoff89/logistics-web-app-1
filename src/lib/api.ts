@@ -73,3 +73,15 @@ export const dataApi = {
   createLog: (data: { userId: string; userName: string; action: string; entity: string; entityId: string }) =>
     dataFetch({ action: 'create_action_log', ...data }),
 };
+
+// ── Database Directory ────────────────────────────────────────────────────────
+
+const DIR_KEYS = ['clients', 'contractors', 'containers', 'vehicles', 'vessels', 'wagons', 'dgk', 'egk', 'ndgu', 'stations', 'terminals', 'cargo', 'cities'] as const;
+export type DirKey = typeof DIR_KEYS[number];
+
+export const dbApi = {
+  get: (key: DirKey) => dataFetch({ action: `db_get_${key}` }),
+  create: (key: DirKey, data: Record<string, string>) => dataFetch({ action: `db_create_${key}`, ...data }),
+  update: (key: DirKey, id: string, data: Record<string, string>) => dataFetch({ action: `db_update_${key}`, id, ...data }),
+  delete: (key: DirKey, id: string) => dataFetch({ action: `db_delete_${key}`, id }),
+};

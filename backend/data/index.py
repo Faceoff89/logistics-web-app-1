@@ -268,6 +268,59 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({'id': str(new_id)}, 201)
 
+        # ── DATABASE DIRECTORY ─────────────────────────────────────────────────
+
+        # Универсальный CRUD для справочников
+        DIR_TABLES = {
+            'clients': ('db_clients', ['name', 'inn', 'contact_person', 'phone', 'email', 'comment']),
+            'contractors': ('db_contractors', ['name', 'type', 'inn', 'contact_person', 'phone', 'email', 'comment']),
+            'containers': ('db_containers', ['number', 'size', 'owner', 'comment']),
+            'vehicles': ('db_vehicles', ['plate', 'driver_name', 'driver_phone', 'carrier', 'comment']),
+            'vessels': ('db_vessels', ['name', 'flag', 'imo', 'comment']),
+            'wagons': ('db_wagons', ['number', 'type', 'owner', 'comment']),
+            'dgk': ('db_dgk', ['number', 'owner', 'comment']),
+            'egk': ('db_egk', ['number', 'owner', 'comment']),
+            'ndgu': ('db_ndgu', ['number', 'owner', 'comment']),
+            'stations': ('db_stations', ['name', 'code', 'region', 'comment']),
+            'terminals': ('db_terminals', ['name', 'city', 'address', 'contact', 'comment']),
+            'cargo': ('db_cargo', ['name', 'gng_code', 'etsnv_code', 'temp_mode', 'comment']),
+            'cities': ('db_cities', ['name', 'region', 'comment']),
+        }
+
+        for dir_key, (tbl, fields) in DIR_TABLES.items():
+            if action == f'db_get_{dir_key}':
+                cols = ', '.join(['id'] + fields + ['created_at'])
+                cur.execute(f"SELECT {cols} FROM {SCHEMA}.{tbl} ORDER BY id")
+                rows = []
+                for r in cur.fetchall():
+                    row = {'id': str(r[0])}
+                    for i, f in enumerate(fields):
+                        row[f] = r[i+1] or ''
+                    row['created_at'] = str(r[len(fields)+1]) if r[len(fields)+1] else ''
+                    rows.append(row)
+                return ok({dir_key: rows})
+
+            if action == f'db_create_{dir_key}':
+                cols = ', '.join(fields)
+                vals = ', '.join([q(b.get(f, '')) for f in fields])
+                cur.execute(f"INSERT INTO {SCHEMA}.{tbl} ({cols}) VALUES ({vals}) RETURNING id")
+                new_id = cur.fetchone()[0]
+                conn.commit()
+                return ok({'id': str(new_id)}, 201)
+
+            if action == f'db_update_{dir_key}':
+                rid = b.get('id', '')
+                sets = ', '.join([f"{f}={q(b.get(f,''))}" for f in fields])
+                cur.execute(f"UPDATE {SCHEMA}.{tbl} SET {sets}, updated_at=NOW() WHERE id={q(rid)}")
+                conn.commit()
+                return ok({'ok': True})
+
+            if action == f'db_delete_{dir_key}':
+                rid = b.get('id', '')
+                cur.execute(f"DELETE FROM {SCHEMA}.{tbl} WHERE id={q(rid)}")
+                conn.commit()
+                return ok({'ok': True})
+
         return err('Неизвестное действие', 400)
     finally:
         conn.close()

@@ -17,6 +17,7 @@ const NAV: NavItem[] = [
   { id: 'flights-rail', label: 'Рейсы ЖД', icon: 'Train', parent: 'Рейсы' },
   { id: 'equipment', label: 'Оборудование', icon: 'Container' },
   { id: 'requests', label: 'Заявки', icon: 'ClipboardList' },
+  { id: 'database', label: 'База данных', icon: 'Database' },
   { id: 'accounts', label: 'Учётные записи', icon: 'Users' },
   { id: 'reports', label: 'Отчёты', icon: 'BarChart2' },
 ];

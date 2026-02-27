@@ -15,7 +15,7 @@ export const USERS: User[] = [
 ];
 
 export type EquipmentStatus = 'checked' | 'unchecked' | 'broken';
-export type ContainerType = 'container' | 'dgk' | 'genset';
+export type ContainerType = 'container' | 'dgk' | 'egk' | 'ndgu';
 
 export interface Equipment {
   id: string;
@@ -35,9 +35,9 @@ export const EQUIPMENT: Equipment[] = [
   { id: 'e5', number: 'СVIU8901234', type: 'container', status: 'checked', location: 'ДТК', lastCheck: '2026-02-22', comment: '' },
   { id: 'e6', number: 'DGK-001', type: 'dgk', status: 'checked', location: 'ПИК', lastCheck: '2026-02-19', comment: '' },
   { id: 'e7', number: 'DGK-002', type: 'dgk', status: 'unchecked', location: 'ДТК', lastCheck: '2026-01-28', comment: '' },
-  { id: 'e8', number: 'EGK-001', type: 'dgk', status: 'checked', location: 'Гамбург', lastCheck: '2026-02-15', comment: '' },
-  { id: 'e9', number: 'GEN-001', type: 'genset', status: 'checked', location: 'ПИК', lastCheck: '2026-02-21', comment: '' },
-  { id: 'e10', number: 'GEN-002', type: 'genset', status: 'broken', location: 'ДТК', lastCheck: '2026-02-05', comment: 'Замена аккумулятора' },
+  { id: 'e8', number: 'EGK-001', type: 'egk', status: 'checked', location: 'Гамбург', lastCheck: '2026-02-15', comment: '' },
+  { id: 'e9', number: 'NDGU-001', type: 'ndgu', status: 'checked', location: 'ПИК', lastCheck: '2026-02-21', comment: '' },
+  { id: 'e10', number: 'NDGU-002', type: 'ndgu', status: 'broken', location: 'ДТК', lastCheck: '2026-02-05', comment: 'Замена аккумулятора' },
   { id: 'e11', number: 'TCKU9876543', type: 'container', status: 'checked', location: 'ПИК', lastCheck: '2026-02-23', comment: '' },
   { id: 'e12', number: 'HLCU2345678', type: 'container', status: 'checked', location: 'ДТК', lastCheck: '2026-02-17', comment: '' },
 ];
