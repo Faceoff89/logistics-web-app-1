@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import { User, Shipment, Flight, Equipment, ActionLog, AutoTask } from '@/data/mock';
+import { User, Shipment, Flight, Equipment, ActionLog, AutoTask, ArrivalShipment } from '@/data/mock';
 import { authApi, dataApi } from '@/lib/api';
 
-export type Section = 'dashboard' | 'planning-rail' | 'planning-auto' | 'flights-rail' | 'equipment' | 'requests' | 'accounts' | 'reports';
+export type Section = 'dashboard' | 'planning-rail' | 'planning-auto' | 'planning-arrival' | 'flights-rail' | 'equipment' | 'requests' | 'accounts' | 'reports';
 
 interface AppStore {
   currentUser: User | null;
@@ -45,6 +45,11 @@ interface AppStore {
   deleteAutoTask: (id: string) => void;
   deleteManyAutoTasks: (ids: string[]) => void;
 
+  arrivalShipments: ArrivalShipment[];
+  addArrivalShipment: (r: ArrivalShipment) => void;
+  updateArrivalShipment: (id: string, data: Partial<ArrivalShipment>) => void;
+  deleteManyArrivalShipments: (ids: string[]) => void;
+
   loadUsers: () => Promise<void>;
   createUser: (data: { name: string; email: string; password: string; role: string }) => Promise<void>;
   updateUser: (id: string, data: Partial<{ name: string; email: string; password: string; role: string; is_active: boolean }>) => Promise<void>;
@@ -62,6 +67,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   equipment: [],
   logs: [],
   autoTasks: [],
+  arrivalShipments: [],
   sidebarOpen: true,
   darkMode: false,
   isLoading: false,
@@ -267,6 +273,20 @@ export const useAppStore = create<AppStore>((set, get) => ({
   deleteManyAutoTasks: (ids) => {
     set(s => ({ autoTasks: s.autoTasks.filter(t => !ids.includes(t.id)) }));
     ids.forEach(id => dataApi.deleteAutoTask(id).catch(() => null));
+  },
+
+  // ── Arrival Shipments ──────────────────────────────────────────────────────
+
+  addArrivalShipment: (r) => {
+    set(s => ({ arrivalShipments: [...s.arrivalShipments, r] }));
+  },
+
+  updateArrivalShipment: (id, data) => {
+    set(s => ({ arrivalShipments: s.arrivalShipments.map(r => r.id === id ? { ...r, ...data } : r) }));
+  },
+
+  deleteManyArrivalShipments: (ids) => {
+    set(s => ({ arrivalShipments: s.arrivalShipments.filter(r => !ids.includes(r.id)) }));
   },
 
   // ── Users ──────────────────────────────────────────────────────────────────

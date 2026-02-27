@@ -196,6 +196,49 @@ export const AUTO_TASKS: AutoTask[] = [
   { id: 'at6', type: 'movement', date: '2026-02-24', containerNumber: 'NLUU0205679', client: 'ПОРОЖНИЕ С САХАЛИНА', carrier: 'ГТЛ', time: '', address: '', contact: '', terminalFrom: 'ВМТП', terminalTo: 'ПОСЕЙДОН', cargo: '', tempMode: '', status: 'planned', comment: '' },
 ];
 
+// ==================== ПЛАНИРОВАНИЕ ПРИБЫТИЕ ====================
+
+export type ArrivalStatus = 'planned' | 'arrived' | 'unloaded' | 'issued';
+
+export interface ArrivalShipment {
+  id: string;
+  railSendDate: string;
+  stationFrom: string;
+  container: string;
+  terminalUnloadDate: string;
+  vsd: string;
+  tempMode: string;
+  cargo: string;
+  consignee: string;
+  destinationCity: string;
+  clientNotifyDate: string;
+  inspectionDate: string;
+  exportDate: string;
+  exportBan: string;
+  comment: string;
+  unloadAddress: string;
+  scep: string;
+  scepDate: string;
+  customer: string;
+  manager: string;
+  cargoWeight: string;
+  cdekArrivalKey: string;
+  cdekTrack: string;
+  documents: string;
+  status: ArrivalStatus;
+  editedBy?: string;
+  editedAt?: string;
+}
+
+export const ARRIVAL_STATUS_LABEL: Record<ArrivalStatus, string> = {
+  planned: 'Ожидается',
+  arrived: 'Прибыл',
+  unloaded: 'Выгружен',
+  issued: 'Выдан',
+};
+
+export const ARRIVAL_SHIPMENTS: ArrivalShipment[] = [];
+
 export const ACTION_LOGS: ActionLog[] = [
   { id: 'l1', userId: '1', userName: 'Алексей Петров', action: 'Изменён статус', entity: 'Отправка', entityId: 's1', timestamp: '2026-02-23 09:14' },
   { id: 'l2', userId: '2', userName: 'Марина Соколова', action: 'Создан рейс', entity: 'Рейс', entityId: 'f2', timestamp: '2026-02-23 08:30' },

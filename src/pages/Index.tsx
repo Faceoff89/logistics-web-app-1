@@ -6,6 +6,7 @@ import TopBar from '@/components/TopBar';
 import Dashboard from '@/components/sections/Dashboard';
 import PlanningRail from '@/components/sections/PlanningRail';
 import PlanningAuto from '@/components/sections/PlanningAuto';
+import PlanningArrival from '@/components/sections/PlanningArrival';
 import FlightsRail from '@/components/sections/FlightsRail';
 import EquipmentSection from '@/components/sections/Equipment';
 import Requests from '@/components/sections/Requests';
@@ -80,6 +81,7 @@ export default function Index() {
               {section === 'dashboard' && <Dashboard />}
               {section === 'planning-rail' && <PlanningRail />}
               {section === 'planning-auto' && <PlanningAuto />}
+              {section === 'planning-arrival' && <PlanningArrival />}
               {section === 'flights-rail' && <FlightsRail />}
               {section === 'equipment' && <EquipmentSection />}
               {section === 'requests' && <Requests />}
