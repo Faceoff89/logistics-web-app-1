@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { useAppStore } from '@/store/appStore';
 import { Equipment as Eq, EquipmentStatus, ContainerType, TERMINALS, EQUIPMENT_STATUS_LABEL } from '@/data/mock';
 import Icon from '@/components/ui/icon';
@@ -18,6 +19,116 @@ const STATUS_COLORS: Record<EquipmentStatus, string> = {
   broken: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
 };
 
+// Компонент поля "Терминал" с возможностью выбрать из списка или ввести своё
+function TerminalInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [custom, setCustom] = useState(!TERMINALS.includes(value));
+  const selectVal = custom ? '__custom__' : value;
+
+  return (
+    <div className="space-y-2">
+      <Select
+        value={selectVal}
+        onValueChange={v => {
+          if (v === '__custom__') {
+            setCustom(true);
+            onChange('');
+          } else {
+            setCustom(false);
+            onChange(v);
+          }
+        }}
+      >
+        <SelectTrigger><SelectValue placeholder="Выберите терминал" /></SelectTrigger>
+        <SelectContent>
+          {TERMINALS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+          <SelectItem value="__custom__">— Ввести свой —</SelectItem>
+        </SelectContent>
+      </Select>
+      {custom && (
+        <Input
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="Название терминала"
+          autoFocus
+        />
+      )}
+    </div>
+  );
+}
+
+// Разбор Excel-строк для контейнеров
+// Ожидаемые колонки: Номер, Размер, Статус, Терминал, Комментарий
+function parseContainersXlsx(file: File): Promise<Partial<Eq & { size?: string }>[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = new Uint8Array(e.target!.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' });
+        const result = rows
+          .filter(r => r['Номер'] || r['номер'] || r['number'] || Object.values(r)[0])
+          .map(r => {
+            const num = (r['Номер'] || r['номер'] || r['number'] || String(Object.values(r)[0] ?? '')).toString().trim().toUpperCase();
+            const size = (r['Размер'] || r['размер'] || r['size'] || '40HC').toString().trim() || '40HC';
+            const statusRaw = (r['Статус'] || r['статус'] || r['status'] || '').toString().toLowerCase();
+            const status: EquipmentStatus = statusRaw.includes('испр') || statusRaw === 'broken' ? 'broken'
+              : statusRaw.includes('провер') || statusRaw === 'checked' ? 'checked'
+              : 'unchecked';
+            const location = (r['Терминал'] || r['терминал'] || r['location'] || TERMINALS[0]).toString().trim() || TERMINALS[0];
+            const comment = (r['Комментарий'] || r['комментарий'] || r['comment'] || '').toString().trim();
+            return { number: num, size, status, location, comment, type: 'container' as ContainerType };
+          })
+          .filter(r => r.number);
+        resolve(result);
+      } catch {
+        reject(new Error('Не удалось прочитать файл'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Ошибка чтения файла'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// Разбор Excel-строк для энергооборудования
+// Ожидаемые колонки: Номер, Тип, Статус, Терминал, Комментарий
+function parseEnergyXlsx(file: File): Promise<Partial<Eq>[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = new Uint8Array(e.target!.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' });
+        const result = rows
+          .filter(r => r['Номер'] || r['номер'] || r['number'] || Object.values(r)[0])
+          .map(r => {
+            const num = (r['Номер'] || r['номер'] || r['number'] || String(Object.values(r)[0] ?? '')).toString().trim().toUpperCase();
+            const typeRaw = (r['Тип'] || r['тип'] || r['type'] || 'ДГК').toString().toUpperCase();
+            const type: ContainerType = typeRaw.includes('ЭГК') || typeRaw === 'EGK' ? 'egk'
+              : typeRaw.includes('НДГУ') || typeRaw === 'NDGU' ? 'ndgu'
+              : 'dgk';
+            const statusRaw = (r['Статус'] || r['статус'] || r['status'] || '').toString().toLowerCase();
+            const status: EquipmentStatus = statusRaw.includes('испр') || statusRaw === 'broken' ? 'broken'
+              : statusRaw.includes('провер') || statusRaw === 'checked' ? 'checked'
+              : 'unchecked';
+            const location = (r['Терминал'] || r['терминал'] || r['location'] || TERMINALS[0]).toString().trim() || TERMINALS[0];
+            const comment = (r['Комментарий'] || r['комментарий'] || r['comment'] || '').toString().trim();
+            return { number: num, type, status, location, comment };
+          })
+          .filter(r => r.number);
+        resolve(result);
+      } catch {
+        reject(new Error('Не удалось прочитать файл'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Ошибка чтения файла'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 // ── Вкладка: Контейнеры ──────────────────────────────────────────────────────
 
 function ContainersTab() {
@@ -29,7 +140,19 @@ function ContainersTab() {
   const [filterTerminal, setFilterTerminal] = useState('all');
   const [filterSize, setFilterSize] = useState('all');
   const [addModal, setAddModal] = useState(false);
-  const [newEq, setNewEq] = useState({ number: '', size: '40HC', status: 'unchecked' as EquipmentStatus, location: 'ПИК', comment: '' });
+  const [newEq, setNewEq] = useState({ number: '', size: '40HC', status: 'unchecked' as EquipmentStatus, location: TERMINALS[0], comment: '' });
+
+  // Импорт Excel
+  const [importModal, setImportModal] = useState(false);
+  const [importRows, setImportRows] = useState<Partial<Eq & { size?: string }>[]>([]);
+  const [importError, setImportError] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const allTerminals = useMemo(() => {
+    const custom = containers.map(e => e.location).filter(l => !TERMINALS.includes(l));
+    return [...TERMINALS, ...Array.from(new Set(custom))];
+  }, [containers]);
 
   const filtered = useMemo(() => containers.filter(e => {
     const q = search.toLowerCase();
@@ -40,7 +163,6 @@ function ContainersTab() {
     return matchSearch && matchStatus && matchTerminal && matchSize;
   }), [containers, search, filterStatus, filterTerminal, filterSize]);
 
-  // Сводка по терминалам
   const terminalSummary = useMemo(() => {
     const map: Record<string, { total: number; checked: number; broken: number }> = {};
     for (const e of containers) {
@@ -70,7 +192,48 @@ function ContainersTab() {
       ...(newEq.size ? { size: newEq.size } : {}),
     } as Eq);
     setAddModal(false);
-    setNewEq({ number: '', size: '40HC', status: 'unchecked', location: 'ПИК', comment: '' });
+    setNewEq({ number: '', size: '40HC', status: 'unchecked', location: TERMINALS[0], comment: '' });
+  };
+
+  const handleFileSelect = async (file: File) => {
+    setImportError('');
+    setImportLoading(true);
+    try {
+      const rows = await parseContainersXlsx(file);
+      if (!rows.length) {
+        setImportError('Файл не содержит данных. Проверьте заголовки колонок.');
+      } else {
+        setImportRows(rows);
+      }
+    } catch (err: unknown) {
+      setImportError(err instanceof Error ? err.message : 'Ошибка');
+    }
+    setImportLoading(false);
+  };
+
+  const handleImportConfirm = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    importRows.forEach((r, i) => {
+      addEquipment({
+        id: `e${Date.now()}_${i}`,
+        number: r.number!,
+        type: 'container',
+        status: r.status ?? 'unchecked',
+        location: r.location ?? TERMINALS[0],
+        lastCheck: today,
+        comment: r.comment ?? '',
+        ...(r.size ? { size: r.size } : {}),
+      } as Eq);
+    });
+    setImportModal(false);
+    setImportRows([]);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  const handleOpenImport = () => {
+    setImportRows([]);
+    setImportError('');
+    setImportModal(true);
   };
 
   const checkedCount = containers.filter(e => e.status === 'checked').length;
@@ -81,8 +244,9 @@ function ContainersTab() {
     <div className="space-y-4">
       {/* Сводные карточки по терминалам */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {TERMINALS.map(term => {
+        {allTerminals.map(term => {
           const s = terminalSummary[term] ?? { total: 0, checked: 0, broken: 0 };
+          if (!s.total) return null;
           return (
             <button
               key={term}
@@ -131,7 +295,7 @@ function ContainersTab() {
           <SelectTrigger className="w-36 h-8 text-sm"><SelectValue placeholder="Терминал" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Все терминалы</SelectItem>
-            {TERMINALS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            {allTerminals.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filterSize} onValueChange={setFilterSize}>
@@ -141,7 +305,10 @@ function ContainersTab() {
             {CONTAINER_SIZES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button size="sm" className="h-8 ml-auto" onClick={() => setAddModal(true)}>
+        <Button size="sm" variant="outline" className="h-8" onClick={handleOpenImport}>
+          <Icon name="FileSpreadsheet" size={14} className="mr-1.5" /> Добавить списком
+        </Button>
+        <Button size="sm" className="h-8" onClick={() => setAddModal(true)}>
           <Icon name="Plus" size={14} className="mr-1.5" /> Добавить
         </Button>
       </div>
@@ -189,13 +356,11 @@ function ContainersTab() {
                     </select>
                   </td>
                   <td className="px-4 py-2.5">
-                    <select
+                    <input
                       value={e.location}
                       onChange={ev => handleUpdate(e.id, { location: ev.target.value })}
-                      className="text-sm bg-transparent outline-none cursor-pointer text-foreground"
-                    >
-                      {TERMINALS.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                      className="text-sm bg-transparent outline-none text-foreground border-b border-transparent hover:border-muted-foreground/30 focus:border-primary transition-colors w-28"
+                    />
                   </td>
                   <td className="px-4 py-2.5">
                     <input
@@ -236,7 +401,7 @@ function ContainersTab() {
         </div>
       </div>
 
-      {/* Модальное окно */}
+      {/* Модальное окно — добавить один */}
       <Dialog open={addModal} onOpenChange={setAddModal}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Добавить контейнер</DialogTitle></DialogHeader>
@@ -268,10 +433,7 @@ function ContainersTab() {
             </div>
             <div className="space-y-1">
               <Label>Терминал</Label>
-              <Select value={newEq.location} onValueChange={v => setNewEq({ ...newEq, location: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{TERMINALS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-              </Select>
+              <TerminalInput value={newEq.location} onChange={v => setNewEq({ ...newEq, location: v })} />
             </div>
             <div className="space-y-1">
               <Label>Комментарий</Label>
@@ -281,6 +443,74 @@ function ContainersTab() {
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setAddModal(false)}>Отмена</Button>
             <Button onClick={handleAdd} disabled={!newEq.number.trim()}>Добавить</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Модальное окно — импорт Excel */}
+      <Dialog open={importModal} onOpenChange={v => { setImportModal(v); if (!v) { setImportRows([]); setImportError(''); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Добавить контейнеры списком (Excel)</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="rounded-lg border-2 border-dashed border-border p-6 text-center space-y-3">
+              <Icon name="FileSpreadsheet" size={32} className="mx-auto text-muted-foreground opacity-60" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Загрузите файл Excel (.xlsx, .xls)</p>
+                <p className="text-xs text-muted-foreground mt-1">Колонки: <span className="font-mono">Номер, Размер, Статус, Терминал, Комментарий</span></p>
+                <p className="text-xs text-muted-foreground">Статус: «Проверен», «Не проверен», «Неисправен»</p>
+              </div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={e => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+              />
+              <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={importLoading}>
+                <Icon name="Upload" size={14} className="mr-1.5" />
+                {importLoading ? 'Загрузка...' : 'Выбрать файл'}
+              </Button>
+            </div>
+
+            {importError && (
+              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-300">
+                {importError}
+              </div>
+            )}
+
+            {importRows.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-foreground">Найдено записей: <span className="text-primary">{importRows.length}</span></p>
+                <div className="max-h-56 overflow-y-auto rounded-lg border border-border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50 sticky top-0">
+                      <tr>
+                        {['Номер', 'Размер', 'Статус', 'Терминал', 'Комментарий'].map(h => (
+                          <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importRows.map((r, i) => (
+                        <tr key={i} className="border-t border-border hover:bg-muted/30">
+                          <td className="px-3 py-1.5 font-mono font-semibold">{r.number}</td>
+                          <td className="px-3 py-1.5">{r.size}</td>
+                          <td className="px-3 py-1.5">{EQUIPMENT_STATUS_LABEL[r.status ?? 'unchecked']}</td>
+                          <td className="px-3 py-1.5">{r.location}</td>
+                          <td className="px-3 py-1.5 text-muted-foreground">{r.comment}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => { setImportModal(false); setImportRows([]); setImportError(''); }}>Отмена</Button>
+            <Button onClick={handleImportConfirm} disabled={importRows.length === 0}>
+              Добавить {importRows.length > 0 ? importRows.length : ''} записей
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -299,7 +529,19 @@ function EnergyTab() {
   const [filterTerminal, setFilterTerminal] = useState('all');
   const [filterType, setFilterType] = useState<'all' | 'dgk' | 'egk' | 'ndgu'>('all');
   const [addModal, setAddModal] = useState(false);
-  const [newEq, setNewEq] = useState({ number: '', type: 'dgk' as 'dgk' | 'egk' | 'ndgu', status: 'unchecked' as EquipmentStatus, location: 'ПИК', comment: '' });
+  const [newEq, setNewEq] = useState({ number: '', type: 'dgk' as 'dgk' | 'egk' | 'ndgu', status: 'unchecked' as EquipmentStatus, location: TERMINALS[0], comment: '' });
+
+  // Импорт Excel
+  const [importModal, setImportModal] = useState(false);
+  const [importRows, setImportRows] = useState<Partial<Eq>[]>([]);
+  const [importError, setImportError] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const allTerminals = useMemo(() => {
+    const custom = energyItems.map(e => e.location).filter(l => !TERMINALS.includes(l));
+    return [...TERMINALS, ...Array.from(new Set(custom))];
+  }, [energyItems]);
 
   const filtered = useMemo(() => energyItems.filter(e => {
     const q = search.toLowerCase();
@@ -309,7 +551,6 @@ function EnergyTab() {
     const matchType = filterType === 'all' || e.type === filterType;
     return matchSearch && matchStatus && matchTerminal && matchType;
   }), [energyItems, search, filterStatus, filterTerminal, filterType]);
-
 
   const handleUpdate = (id: string, data: Partial<Eq>) => {
     if (!currentUser) return;
@@ -328,14 +569,53 @@ function EnergyTab() {
       comment: newEq.comment,
     });
     setAddModal(false);
-    setNewEq({ number: '', type: 'dgk', status: 'unchecked', location: 'ПИК', comment: '' });
+    setNewEq({ number: '', type: 'dgk', status: 'unchecked', location: TERMINALS[0], comment: '' });
+  };
+
+  const handleFileSelect = async (file: File) => {
+    setImportError('');
+    setImportLoading(true);
+    try {
+      const rows = await parseEnergyXlsx(file);
+      if (!rows.length) {
+        setImportError('Файл не содержит данных. Проверьте заголовки колонок.');
+      } else {
+        setImportRows(rows);
+      }
+    } catch (err: unknown) {
+      setImportError(err instanceof Error ? err.message : 'Ошибка');
+    }
+    setImportLoading(false);
+  };
+
+  const handleImportConfirm = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    importRows.forEach((r, i) => {
+      addEquipment({
+        id: `e${Date.now()}_${i}`,
+        number: r.number!,
+        type: r.type ?? 'dgk',
+        status: r.status ?? 'unchecked',
+        location: r.location ?? TERMINALS[0],
+        lastCheck: today,
+        comment: r.comment ?? '',
+      });
+    });
+    setImportModal(false);
+    setImportRows([]);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  const handleOpenImport = () => {
+    setImportRows([]);
+    setImportError('');
+    setImportModal(true);
   };
 
   const dgkCount = energyItems.filter(e => e.type === 'dgk').length;
   const egkCount = energyItems.filter(e => e.type === 'egk').length;
   const ndguCount = energyItems.filter(e => e.type === 'ndgu').length;
 
-  // Сводка по терминалам для энергии
   const terminalSummary = useMemo(() => {
     const map: Record<string, number> = {};
     for (const e of energyItems) {
@@ -407,9 +687,12 @@ function EnergyTab() {
           <SelectTrigger className="w-36 h-8 text-sm"><SelectValue placeholder="Терминал" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Все терминалы</SelectItem>
-            {TERMINALS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            {allTerminals.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button size="sm" variant="outline" className="h-8" onClick={handleOpenImport}>
+          <Icon name="FileSpreadsheet" size={14} className="mr-1.5" /> Добавить списком
+        </Button>
         <Button size="sm" className="h-8 ml-auto" onClick={() => setAddModal(true)}>
           <Icon name="Plus" size={14} className="mr-1.5" /> Добавить
         </Button>
@@ -460,13 +743,11 @@ function EnergyTab() {
                     </select>
                   </td>
                   <td className="px-4 py-2.5">
-                    <select
+                    <input
                       value={e.location}
                       onChange={ev => handleUpdate(e.id, { location: ev.target.value })}
-                      className="text-sm bg-transparent outline-none cursor-pointer text-foreground"
-                    >
-                      {TERMINALS.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                      className="text-sm bg-transparent outline-none text-foreground border-b border-transparent hover:border-muted-foreground/30 focus:border-primary transition-colors w-28"
+                    />
                   </td>
                   <td className="px-4 py-2.5">
                     <input
@@ -502,6 +783,7 @@ function EnergyTab() {
         </div>
       </div>
 
+      {/* Модальное окно — добавить один */}
       <Dialog open={addModal} onOpenChange={setAddModal}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Добавить оборудование</DialogTitle></DialogHeader>
@@ -532,10 +814,7 @@ function EnergyTab() {
             </div>
             <div className="space-y-1">
               <Label>Терминал</Label>
-              <Select value={newEq.location} onValueChange={v => setNewEq({ ...newEq, location: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{TERMINALS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-              </Select>
+              <TerminalInput value={newEq.location} onChange={v => setNewEq({ ...newEq, location: v })} />
             </div>
             <div className="space-y-1">
               <Label>Комментарий</Label>
@@ -545,6 +824,74 @@ function EnergyTab() {
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setAddModal(false)}>Отмена</Button>
             <Button onClick={handleAdd} disabled={!newEq.number.trim()}>Добавить</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Модальное окно — импорт Excel */}
+      <Dialog open={importModal} onOpenChange={v => { setImportModal(v); if (!v) { setImportRows([]); setImportError(''); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Добавить оборудование списком (Excel)</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="rounded-lg border-2 border-dashed border-border p-6 text-center space-y-3">
+              <Icon name="FileSpreadsheet" size={32} className="mx-auto text-muted-foreground opacity-60" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Загрузите файл Excel (.xlsx, .xls)</p>
+                <p className="text-xs text-muted-foreground mt-1">Колонки: <span className="font-mono">Номер, Тип, Статус, Терминал, Комментарий</span></p>
+                <p className="text-xs text-muted-foreground">Тип: «ДГК», «ЭГК», «НДГУ» · Статус: «Проверен», «Не проверен», «Неисправен»</p>
+              </div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={e => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+              />
+              <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={importLoading}>
+                <Icon name="Upload" size={14} className="mr-1.5" />
+                {importLoading ? 'Загрузка...' : 'Выбрать файл'}
+              </Button>
+            </div>
+
+            {importError && (
+              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-300">
+                {importError}
+              </div>
+            )}
+
+            {importRows.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-foreground">Найдено записей: <span className="text-primary">{importRows.length}</span></p>
+                <div className="max-h-56 overflow-y-auto rounded-lg border border-border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50 sticky top-0">
+                      <tr>
+                        {['Номер', 'Тип', 'Статус', 'Терминал', 'Комментарий'].map(h => (
+                          <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importRows.map((r, i) => (
+                        <tr key={i} className="border-t border-border hover:bg-muted/30">
+                          <td className="px-3 py-1.5 font-mono font-semibold">{r.number}</td>
+                          <td className="px-3 py-1.5">{POWER_TYPES[r.type ?? 'dgk']}</td>
+                          <td className="px-3 py-1.5">{EQUIPMENT_STATUS_LABEL[r.status ?? 'unchecked']}</td>
+                          <td className="px-3 py-1.5">{r.location}</td>
+                          <td className="px-3 py-1.5 text-muted-foreground">{r.comment}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => { setImportModal(false); setImportRows([]); setImportError(''); }}>Отмена</Button>
+            <Button onClick={handleImportConfirm} disabled={importRows.length === 0}>
+              Добавить {importRows.length > 0 ? importRows.length : ''} записей
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
