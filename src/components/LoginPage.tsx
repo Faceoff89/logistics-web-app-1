@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
+import { TelegramLoginButton } from '@/components/extensions/telegram-bot/TelegramLoginButton';
+
+const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || '';
 
 export default function LoginPage() {
   const login = useAppStore(s => s.login);
@@ -66,6 +69,21 @@ export default function LoginPage() {
               Войти
             </Button>
           </form>
+
+          {TELEGRAM_BOT_USERNAME && (
+            <div className="mt-4">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+                <div className="relative flex justify-center text-xs"><span className="bg-card px-2 text-muted-foreground">или</span></div>
+              </div>
+              <div className="mt-4">
+                <TelegramLoginButton
+                  onClick={() => window.open(`https://t.me/${TELEGRAM_BOT_USERNAME}?start=web_auth`, '_blank')}
+                  className="w-full"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="mt-5 pt-4 border-t border-border">
             <p className="text-xs text-muted-foreground text-center mb-2">Тестовые аккаунты:</p>

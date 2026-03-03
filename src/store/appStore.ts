@@ -18,6 +18,7 @@ interface AppStore {
   users: User[];
 
   login: (email: string, password: string) => Promise<boolean>;
+  loginWithToken: (token: string, user: User) => Promise<void>;
   logout: () => void;
   restoreSession: () => Promise<void>;
   setSection: (s: Section) => void;
@@ -84,6 +85,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
     } catch {
       return false;
     }
+  },
+
+  loginWithToken: async (token: string, user: User) => {
+    localStorage.setItem('auth_token', token);
+    const safeUser: User = { ...user, password: '' };
+    set({ currentUser: safeUser });
+    await get().loadAll();
   },
 
   logout: () => {
