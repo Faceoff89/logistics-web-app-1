@@ -90,4 +90,5 @@ export const dbApi = {
   create: (key: DirKey, data: Record<string, string>) => dataFetch({ action: `db_create_${key}`, ...data }),
   update: (key: DirKey, id: string, data: Record<string, string>) => dataFetch({ action: `db_update_${key}`, id, ...data }),
   delete: (key: DirKey, id: string) => dataFetch({ action: `db_delete_${key}`, id }),
+  importExcel: (key: DirKey, fileBase64: string) => dataFetch({ action: 'import_directory', dir_key: key, file: fileBase64 }),
 };

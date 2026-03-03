@@ -6,6 +6,14 @@
       "path": "/",
       "expectedStatus": 200,
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Unknown action returns 400",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "unknown_action_test"},
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
     }
   ]
 }

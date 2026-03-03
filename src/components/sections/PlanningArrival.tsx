@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { ColFilter } from '@/components/ui/col-filter';
 import { useAppStore } from '@/store/appStore';
 import {
   ArrivalShipment, ArrivalStatus, ARRIVAL_STATUS_LABEL,
@@ -89,6 +90,7 @@ export default function PlanningArrival() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterDate, setFilterDate] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<ArrivalShipment | null>(null);
   const [formData, setFormData] = useState<Omit<ArrivalShipment, 'id'>>(EMPTY);
@@ -109,8 +111,15 @@ export default function PlanningArrival() {
           r.manager.toLowerCase().includes(q) ||
           r.stationFrom.toLowerCase().includes(q)
         );
+      })
+      .filter(r => {
+        for (const [key, val] of Object.entries(colFilters)) {
+          if (!val) continue;
+          if (!String(r[key as keyof ArrivalShipment] ?? '').toLowerCase().includes(val.toLowerCase())) return false;
+        }
+        return true;
       });
-  }, [arrivalShipments, filterStatus, filterDate, search]);
+  }, [arrivalShipments, filterStatus, filterDate, search, colFilters]);
 
   function toggleSelect(id: string) {
     setSelected(prev => {
@@ -269,10 +278,14 @@ export default function PlanningArrival() {
                 {COLS.map(col => (
                   <th
                     key={col.key}
-                    className="px-2 py-2 text-left font-medium text-muted-foreground whitespace-nowrap text-xs"
+                    className="px-2 py-1.5 text-left font-medium text-muted-foreground text-xs"
                     style={{ minWidth: col.w }}
                   >
-                    {col.label}
+                    <div className="whitespace-nowrap mb-1">{col.label}</div>
+                    <ColFilter
+                      value={colFilters[col.key] || ''}
+                      onChange={v => setColFilters(p => ({ ...p, [col.key]: v }))}
+                    />
                   </th>
                 ))}
                 <th className="px-2 py-2 w-10" />

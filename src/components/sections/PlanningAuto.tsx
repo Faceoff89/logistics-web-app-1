@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { ColFilter } from '@/components/ui/col-filter';
 import { useAppStore } from '@/store/appStore';
 import {
   AutoTask, AutoTaskType, AutoTaskStatus,
@@ -113,6 +114,9 @@ export default function PlanningAuto() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterDate, setFilterDate] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [colFilters, setColFilters] = useState<Record<string, string>>({});
+
+  useEffect(() => { setColFilters({}); }, [activeTab]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editTask, setEditTask] = useState<AutoTask | null>(null);
   const [formData, setFormData] = useState<Omit<AutoTask, 'id'>>(EMPTY_TASK('movement'));
@@ -133,8 +137,15 @@ export default function PlanningAuto() {
           t.cargo.toLowerCase().includes(q) ||
           (t.direction || '').toLowerCase().includes(q)
         );
+      })
+      .filter(t => {
+        for (const [key, val] of Object.entries(colFilters)) {
+          if (!val) continue;
+          if (!String(t[key as keyof AutoTask] ?? '').toLowerCase().includes(val.toLowerCase())) return false;
+        }
+        return true;
       });
-  }, [autoTasks, activeTab, filterStatus, filterDate, search]);
+  }, [autoTasks, activeTab, filterStatus, filterDate, search, colFilters]);
 
   const cols = getColsForType(activeTab);
 
@@ -316,10 +327,15 @@ export default function PlanningAuto() {
                 {cols.map(col => (
                   <th
                     key={col.key}
-                    className="px-2 py-2 text-left font-semibold text-xs whitespace-nowrap"
+                    className="px-2 py-1.5 text-left font-semibold text-xs"
                     style={{ minWidth: col.w }}
                   >
-                    {col.label}
+                    <div className="whitespace-nowrap mb-1">{col.label}</div>
+                    <ColFilter
+                      value={colFilters[col.key] || ''}
+                      onChange={v => setColFilters(p => ({ ...p, [col.key]: v }))}
+                      className="[&_input]:bg-white/20 [&_input]:placeholder:text-white/60 [&_input]:text-white [&_input]:border-white/30"
+                    />
                   </th>
                 ))}
                 <th className="px-2 py-2 w-16"></th>

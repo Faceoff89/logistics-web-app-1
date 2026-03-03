@@ -1,10 +1,13 @@
 """
-CRUD API: shipments, flights, equipment, auto_tasks, action_logs.
+CRUD API: shipments, flights, equipment, auto_tasks, action_logs, directory import.
 Действие передаётся через поле action в теле запроса.
 """
 import json
 import os
+import base64
+import io
 import psycopg2
+import openpyxl
 
 SCHEMA = 't_p78311576_logistics_web_app_1'
 CORS = {
@@ -320,6 +323,55 @@ def handler(event: dict, context) -> dict:
                 cur.execute(f"DELETE FROM {SCHEMA}.{tbl} WHERE id={q(rid)}")
                 conn.commit()
                 return ok({'ok': True})
+
+        # ── IMPORT DIRECTORY FROM EXCEL ────────────────────────────────────────
+        if action == 'import_directory':
+            dir_key = b.get('dir_key', '')
+            file_b64 = b.get('file', '')
+            if not dir_key or dir_key not in DIR_TABLES:
+                return err('Неизвестный справочник', 400)
+            if not file_b64:
+                return err('Файл не передан', 400)
+
+            tbl, fields = DIR_TABLES[dir_key]
+            try:
+                file_bytes = base64.b64decode(file_b64)
+                wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
+                ws = wb.active
+            except Exception as ex:
+                return err(f'Ошибка чтения Excel: {ex}', 400)
+
+            # Первая строка — заголовки, маппинг по совпадению с именами полей (регистронезависимо)
+            header_row = [str(c.value or '').strip().lower() for c in ws[1]]
+            col_idx = {}
+            for field in fields:
+                for ci, h in enumerate(header_row):
+                    if h == field.lower() or h == field.replace('_', ' ').lower():
+                        col_idx[field] = ci
+                        break
+
+            inserted = 0
+            skipped = 0
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                if not any(row):
+                    continue
+                vals = {}
+                for field in fields:
+                    ci = col_idx.get(field)
+                    vals[field] = str(row[ci]).strip() if ci is not None and row[ci] is not None else ''
+
+                # Пропускаем строки без основного поля
+                if not vals.get(fields[0], ''):
+                    skipped += 1
+                    continue
+
+                cols_str = ', '.join(fields)
+                vals_str = ', '.join([q(vals[f]) for f in fields])
+                cur.execute(f"INSERT INTO {SCHEMA}.{tbl} ({cols_str}) VALUES ({vals_str})")
+                inserted += 1
+
+            conn.commit()
+            return ok({'inserted': inserted, 'skipped': skipped})
 
         return err('Неизвестное действие', 400)
     finally:

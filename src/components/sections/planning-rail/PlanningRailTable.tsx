@@ -1,7 +1,9 @@
+import { useState, useMemo } from 'react';
 import { Shipment, Flight, InspectionNote } from '@/data/mock';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { ColFilter } from '@/components/ui/col-filter';
 import {
   COLS, STATUS_ROW_COLORS, calcDaysOnTerminal,
   EditableCell, StatusCell, ShipmentTypeCell, TerminalCell, InspectionNoteCell,
@@ -33,8 +35,44 @@ export function PlanningRailTable({
   onCopySelected, onMoveSelected, onClearSelected, onDeleteSelected,
   onInspectionRequest,
 }: PlanningRailTableProps) {
+  const [colFilters, setColFilters] = useState<Partial<Record<keyof Shipment | 'flight', string>>>({});
+
+  const setFilter = (key: string, val: string) =>
+    setColFilters(p => ({ ...p, [key]: val }));
+
+  const hasFilters = Object.values(colFilters).some(v => v);
+
+  const displayed = useMemo(() => {
+    if (!hasFilters) return filtered;
+    return filtered.filter(s => {
+      for (const [key, val] of Object.entries(colFilters)) {
+        if (!val) continue;
+        const q = val.toLowerCase();
+        if (key === 'flight') {
+          const flight = flights.find(f => f.id === s.flightId);
+          if (!(flight?.number || '').toLowerCase().includes(q)) return false;
+        } else {
+          if (!String(s[key as keyof Shipment] ?? '').toLowerCase().includes(q)) return false;
+        }
+      }
+      return true;
+    });
+  }, [filtered, colFilters, flights, hasFilters]);
+
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden">
+      {hasFilters && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-amber-50/60 dark:bg-amber-900/10">
+          <Icon name="Filter" size={12} className="text-amber-600" />
+          <span className="text-xs text-amber-700 dark:text-amber-400">Активны фильтры по столбцам</span>
+          <button
+            onClick={() => setColFilters({})}
+            className="ml-auto text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+          >
+            <Icon name="FilterX" size={12} /> Сбросить
+          </button>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="min-w-max w-full text-xs">
           <thead>
@@ -47,24 +85,36 @@ export function PlanningRailTable({
                 />
               </th>
               {COLS.map(col => (
-                <th key={col.key} className={cn('px-2 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap', col.width)}>
-                  {col.label}
+                <th key={col.key} className={cn('px-2 py-1.5 text-left font-semibold text-muted-foreground', col.width)}>
+                  <div className="whitespace-nowrap mb-1">{col.label}</div>
+                  <ColFilter
+                    value={colFilters[col.key] || ''}
+                    onChange={v => setFilter(col.key, v)}
+                  />
                 </th>
               ))}
-              <th className="px-2 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap w-16">Дней</th>
-              <th className="px-2 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap w-32">Рейс</th>
+              <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-16">
+                <div className="whitespace-nowrap mb-1">Дней</div>
+              </th>
+              <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-32">
+                <div className="whitespace-nowrap mb-1">Рейс</div>
+                <ColFilter
+                  value={colFilters['flight'] || ''}
+                  onChange={v => setFilter('flight', v)}
+                />
+              </th>
               <th className="w-16 px-2 py-2" />
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && (
+            {displayed.length === 0 && (
               <tr>
                 <td colSpan={COLS.length + 4} className="text-center py-10 text-muted-foreground">
                   Ничего не найдено
                 </td>
               </tr>
             )}
-            {filtered.map((s, idx) => {
+            {displayed.map((s, idx) => {
               const flight = flights.find(f => f.id === s.flightId);
               const days = calcDaysOnTerminal(s.deliveryDate);
               return (
@@ -156,8 +206,8 @@ export function PlanningRailTable({
       <div className="px-3 py-2 border-t border-border bg-muted/30 flex items-center justify-between gap-2 flex-wrap">
         <span className="text-xs text-muted-foreground">
           {selected.size > 0
-            ? `Выбрано: ${selected.size} из ${filtered.length}`
-            : `Всего: ${filtered.length} записей`}
+            ? `Выбрано: ${selected.size} из ${displayed.length}`
+            : `Всего: ${displayed.length} записей${hasFilters ? ` (отфильтровано из ${filtered.length})` : ''}`}
         </span>
         <div className="flex gap-2 flex-wrap">
           {selected.size > 0 && (

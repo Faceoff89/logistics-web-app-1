@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
+import { ColFilter } from '@/components/ui/col-filter';
 import * as XLSX from 'xlsx';
 import { useAppStore } from '@/store/appStore';
 import { Equipment as Eq, EquipmentStatus, ContainerType, TERMINALS, EQUIPMENT_STATUS_LABEL } from '@/data/mock';
@@ -130,6 +131,7 @@ function ContainersTab() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<EquipmentStatus | 'all'>('all');
   const [filterTerminal, setFilterTerminal] = useState('all');
+  const [colFilters, setColFilters] = useState<Record<string, string>>({ number: '', location: '', comment: '' });
   const [addModal, setAddModal] = useState(false);
   const [newEq, setNewEq] = useState({ number: '', status: 'unchecked' as EquipmentStatus, location: TERMINALS[0], comment: '' });
 
@@ -149,8 +151,11 @@ function ContainersTab() {
     const matchSearch = !q || e.number.toLowerCase().includes(q) || e.location.toLowerCase().includes(q) || (e.comment || '').toLowerCase().includes(q);
     const matchStatus = filterStatus === 'all' || e.status === filterStatus;
     const matchTerminal = filterTerminal === 'all' || e.location === filterTerminal;
-    return matchSearch && matchStatus && matchTerminal;
-  }), [containers, search, filterStatus, filterTerminal]);
+    const matchCol = (!colFilters.number || e.number.toLowerCase().includes(colFilters.number.toLowerCase()))
+      && (!colFilters.location || e.location.toLowerCase().includes(colFilters.location.toLowerCase()))
+      && (!colFilters.comment || (e.comment || '').toLowerCase().includes(colFilters.comment.toLowerCase()));
+    return matchSearch && matchStatus && matchTerminal && matchCol;
+  }), [containers, search, filterStatus, filterTerminal, colFilters]);
 
   const terminalSummary = useMemo(() => {
     const map: Record<string, { total: number; checked: number; broken: number }> = {};
@@ -271,9 +276,22 @@ function ContainersTab() {
           <table className="min-w-max w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                {['#', 'Номер контейнера', 'Статус', 'Терминал', 'Последняя проверка', 'Комментарий', ''].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
-                ))}
+                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">#</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                  <div>Номер контейнера</div>
+                  <ColFilter value={colFilters.number} onChange={v => setColFilters(p => ({ ...p, number: v }))} />
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Статус</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                  <div>Терминал</div>
+                  <ColFilter value={colFilters.location} onChange={v => setColFilters(p => ({ ...p, location: v }))} />
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Последняя проверка</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                  <div>Комментарий</div>
+                  <ColFilter value={colFilters.comment} onChange={v => setColFilters(p => ({ ...p, comment: v }))} />
+                </th>
+                <th className="px-4 py-2"></th>
               </tr>
             </thead>
             <tbody>
