@@ -158,12 +158,13 @@ function ContainersTab() {
   }), [containers, search, filterStatus, filterTerminal, colFilters]);
 
   const terminalSummary = useMemo(() => {
-    const map: Record<string, { total: number; checked: number; broken: number }> = {};
+    const map: Record<string, { total: number; checked: number; broken: number; unchecked: number }> = {};
     for (const e of containers) {
-      if (!map[e.location]) map[e.location] = { total: 0, checked: 0, broken: 0 };
+      if (!map[e.location]) map[e.location] = { total: 0, checked: 0, broken: 0, unchecked: 0 };
       map[e.location].total++;
       if (e.status === 'checked') map[e.location].checked++;
       if (e.status === 'broken') map[e.location].broken++;
+      if (e.status === 'unchecked') map[e.location].unchecked++;
     }
     return map;
   }, [containers]);
@@ -215,7 +216,7 @@ function ContainersTab() {
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {allTerminals.map(term => {
-          const s = terminalSummary[term] ?? { total: 0, checked: 0, broken: 0 };
+          const s = terminalSummary[term] ?? { total: 0, checked: 0, broken: 0, unchecked: 0 };
           if (!s.total) return null;
           return (
             <button
@@ -228,6 +229,7 @@ function ContainersTab() {
               <p className="text-2xl font-bold text-foreground mt-1">{s.total}</p>
               <div className="flex gap-2 mt-1 text-[11px]">
                 <span className="text-emerald-600">{s.checked} ✓</span>
+                {s.unchecked > 0 && <span className="text-amber-500">{s.unchecked} ?</span>}
                 {s.broken > 0 && <span className="text-red-500">{s.broken} ✗</span>}
               </div>
             </button>
