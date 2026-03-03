@@ -8,11 +8,7 @@ export interface User {
   password: string;
 }
 
-export const USERS: User[] = [
-  { id: '1', name: 'Алексей Петров', email: 'logist@polarstar.ru', role: 'logist', password: '123456' },
-  { id: '2', name: 'Марина Соколова', email: 'manager@polarstar.ru', role: 'manager', password: '123456' },
-  { id: '3', name: 'Игорь Директоров', email: 'director@polarstar.ru', role: 'director', password: '123456' },
-];
+export const USERS: User[] = [];
 
 export type EquipmentStatus = 'checked' | 'unchecked' | 'broken';
 export type ContainerType = 'container' | 'dgk' | 'egk' | 'ndgu';

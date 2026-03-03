@@ -1,0 +1,2 @@
+ALTER TABLE t_p78311576_logistics_web_app_1.sessions 
+ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW();

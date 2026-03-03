@@ -86,8 +86,8 @@ def handler(event: dict, context) -> dict:
             session_token = secrets.token_hex(32)
             expires = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
             cur.execute(
-                f"INSERT INTO {SCHEMA}.sessions (user_id, token, expires_at) "
-                f"VALUES ({q(str(row[0]))}, {q(session_token)}, {q(expires)})"
+                f"INSERT INTO {SCHEMA}.sessions (user_id, token, expires_at, updated_at) "
+                f"VALUES ({q(str(row[0]))}, {q(session_token)}, {q(expires)}, NOW())"
             )
             conn.commit()
             return ok({'token': session_token, 'user': {'id': str(row[0]), 'name': row[1], 'email': row[2], 'role': row[3]}})
@@ -105,6 +105,9 @@ def handler(event: dict, context) -> dict:
             user = get_session_user(conn, token)
             if not user:
                 return err('Не авторизован', 401)
+            cur = conn.cursor()
+            cur.execute(f"UPDATE {SCHEMA}.sessions SET updated_at = NOW() WHERE token = {q(token)}")
+            conn.commit()
             return ok({'user': user})
 
         # get_users
@@ -175,6 +178,18 @@ def handler(event: dict, context) -> dict:
             cur.execute(f"UPDATE {SCHEMA}.users SET {', '.join(parts)} WHERE id = {q(target_id)}")
             conn.commit()
             return ok({'ok': True})
+
+        # get_online_users — список пользователей с активными сессиями за последние 15 мин
+        if action == 'get_online_users':
+            cur = conn.cursor()
+            cur.execute(
+                f"SELECT DISTINCT u.id, u.name, u.role FROM {SCHEMA}.sessions s "
+                f"JOIN {SCHEMA}.users u ON u.id = s.user_id "
+                f"WHERE s.expires_at > NOW() AND s.updated_at > NOW() - INTERVAL '15 minutes' AND u.is_active = TRUE"
+            )
+            rows = cur.fetchall()
+            online = [{'id': str(r[0]), 'name': r[1], 'role': r[2]} for r in rows]
+            return ok({'online': online})
 
         return err('Неизвестное действие', 400)
     finally:

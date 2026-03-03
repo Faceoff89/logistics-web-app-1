@@ -42,7 +42,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="logist@polarstar.ru"
+                placeholder="email@polar-star.ru"
                 value={email}
                 onChange={e => { setEmail(e.target.value); setError(''); }}
                 className="h-10"
@@ -85,32 +85,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <div className="mt-5 pt-4 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center mb-2">Тестовые аккаунты:</p>
-            <div className="space-y-1 text-xs text-muted-foreground">
-              {[
-                { label: 'Логист', email: 'logist@polarstar.ru' },
-                { label: 'Менеджер', email: 'manager@polarstar.ru' },
-                { label: 'Директор', email: 'director@polarstar.ru' },
-              ].map(u => (
-                <button
-                  key={u.email}
-                  type="button"
-                  onClick={async () => {
-                    setEmail(u.email); setPassword('123456'); setError('');
-                    setLoading(true);
-                    const ok = await login(u.email, '123456');
-                    if (!ok) setError('Неверный email или пароль');
-                    setLoading(false);
-                  }}
-                  className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-muted transition-colors flex justify-between"
-                >
-                  <span className="font-medium text-foreground">{u.label}</span>
-                  <span>{u.email}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+
         </div>
       </div>
     </div>

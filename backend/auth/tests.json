@@ -8,12 +8,20 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "Login director",
+      "name": "Login Gorbachev director",
       "method": "POST",
       "path": "/",
-      "body": {"action": "login", "email": "director@polarstar.ru", "password": "123456"},
+      "body": {"action": "login", "email": "a.gorbachev@polar-star.ru", "password": "PolarStar#4Vn7"},
       "expectedStatus": 200,
       "expectedBody": {"token": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Unknown action",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "unknown_action"},
+      "expectedStatus": 400,
       "bodyMatcher": "partial"
     }
   ]
