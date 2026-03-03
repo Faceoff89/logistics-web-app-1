@@ -54,6 +54,7 @@ interface AppStore {
   loadUsers: () => Promise<void>;
   createUser: (data: { name: string; email: string; password: string; role: string }) => Promise<void>;
   updateUser: (id: string, data: Partial<{ name: string; email: string; password: string; role: string; is_active: boolean }>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
 }
 
 function writeLog(userId: string, userName: string, action: string, entity: string, entityId: string) {
@@ -318,5 +319,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(s => ({
       users: s.users.map(u => u.id === id ? { ...u, ...data } : u),
     }));
+  },
+
+  deleteUser: async (id) => {
+    await authApi.deleteUser(id);
+    set(s => ({ users: s.users.filter(u => u.id !== id) }));
   },
 }));

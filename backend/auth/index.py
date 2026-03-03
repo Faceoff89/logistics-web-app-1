@@ -179,6 +179,24 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({'ok': True})
 
+        # delete_user
+        if action == 'delete_user':
+            user = get_session_user(conn, token)
+            if not user:
+                return err('Не авторизован', 401)
+            if user['role'] not in ('admin', 'director'):
+                return err('Нет доступа', 403)
+            target_id = body.get('id', '')
+            if not target_id:
+                return err('Не указан id пользователя')
+            if str(user['id']) == target_id:
+                return err('Нельзя удалить собственную учётную запись')
+            cur = conn.cursor()
+            cur.execute(f"DELETE FROM {SCHEMA}.sessions WHERE user_id = {q(target_id)}")
+            cur.execute(f"DELETE FROM {SCHEMA}.users WHERE id = {q(target_id)}")
+            conn.commit()
+            return ok({'ok': True})
+
         # get_online_users — список пользователей с активными сессиями за последние 15 мин
         if action == 'get_online_users':
             cur = conn.cursor()

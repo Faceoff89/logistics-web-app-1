@@ -33,12 +33,14 @@ const ACTION_ICONS: Record<string, string> = {
 type EditModal = { user: User; mode: 'edit' } | { mode: 'create' };
 
 export default function Accounts() {
-  const { logs, currentUser, users, loadUsers, createUser, updateUser } = useAppStore();
+  const { logs, currentUser, users, loadUsers, createUser, updateUser, deleteUser } = useAppStore();
   const [modal, setModal] = useState<EditModal | null>(null);
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'logist', is_active: true });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'users' | 'logs'>('users');
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const canManage = currentUser?.role === 'director' || currentUser?.role === 'admin' || currentUser?.role === 'manager';
   const canCreate = currentUser?.role === 'director' || currentUser?.role === 'admin';
@@ -77,6 +79,17 @@ export default function Accounts() {
       setError(e instanceof Error ? e.message : 'Ошибка сохранения');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteUser(deleteTarget.id);
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -155,13 +168,22 @@ export default function Accounts() {
                     </div>
                   </div>
                   {canCreate && currentUser?.id !== user.id && (
-                    <button
-                      onClick={() => openEdit(user)}
-                      className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                      title="Редактировать"
-                    >
-                      <Icon name="Pencil" size={14} />
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => openEdit(user)}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title="Редактировать"
+                      >
+                        <Icon name="Pencil" size={14} />
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(user)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        title="Удалить"
+                      >
+                        <Icon name="Trash2" size={14} />
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -199,6 +221,29 @@ export default function Accounts() {
           )}
         </div>
       )}
+
+      {/* Модалка подтверждения удаления */}
+      <Dialog open={!!deleteTarget} onOpenChange={v => !v && setDeleteTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Icon name="Trash2" size={18} className="text-destructive" />
+              Удалить учётную запись
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mt-1">
+            Вы уверены, что хотите удалить <span className="font-semibold text-foreground">{deleteTarget?.name}</span>?
+            Это действие необратимо — все сессии пользователя будут завершены.
+          </p>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Отмена</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting && <Icon name="Loader2" size={14} className="mr-1.5 animate-spin" />}
+              Удалить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Модалка создания/редактирования */}
       <Dialog open={!!modal} onOpenChange={v => !v && setModal(null)}>

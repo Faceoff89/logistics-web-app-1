@@ -46,6 +46,9 @@ export const authApi = {
   updateUser: (id: string, data: Partial<{ name: string; email: string; password: string; role: string; is_active: boolean }>) =>
     authFetch({ action: 'update_user', id, ...data }),
 
+  deleteUser: (id: string) =>
+    authFetch({ action: 'delete_user', id }),
+
   getOnlineUsers: () =>
     authFetch({ action: 'get_online_users' }),
 };
