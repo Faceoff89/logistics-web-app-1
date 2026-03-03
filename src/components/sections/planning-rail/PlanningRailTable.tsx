@@ -1,10 +1,10 @@
-import { Shipment, Flight } from '@/data/mock';
+import { Shipment, Flight, InspectionNote } from '@/data/mock';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import {
   COLS, STATUS_ROW_COLORS, calcDaysOnTerminal,
-  EditableCell, StatusCell, ShipmentTypeCell, TerminalCell,
+  EditableCell, StatusCell, ShipmentTypeCell, TerminalCell, InspectionNoteCell,
 } from './PlanningRailCells';
 
 interface PlanningRailTableProps {
@@ -23,6 +23,7 @@ interface PlanningRailTableProps {
   onMoveSelected: () => void;
   onClearSelected: () => void;
   onDeleteSelected: () => void;
+  onInspectionRequest: () => void;
 }
 
 export function PlanningRailTable({
@@ -30,6 +31,7 @@ export function PlanningRailTable({
   onToggleSelect, onSelectAll, onDragStart, onDragEnd,
   onEdit, onCopy, onMoveOne,
   onCopySelected, onMoveSelected, onClearSelected, onDeleteSelected,
+  onInspectionRequest,
 }: PlanningRailTableProps) {
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -37,7 +39,7 @@ export function PlanningRailTable({
         <table className="min-w-max w-full text-xs">
           <thead>
             <tr className="border-b border-border bg-muted/50">
-              <th className="w-8 px-3 py-2.5 text-left">
+              <th className="w-7 px-2 py-2 text-left">
                 <input
                   type="checkbox"
                   className="rounded"
@@ -45,13 +47,13 @@ export function PlanningRailTable({
                 />
               </th>
               {COLS.map(col => (
-                <th key={col.key} className={cn('px-3 py-2.5 text-left font-semibold text-muted-foreground whitespace-nowrap', col.width)}>
+                <th key={col.key} className={cn('px-2 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap', col.width)}>
                   {col.label}
                 </th>
               ))}
-              <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground whitespace-nowrap w-20">Дней на терм.</th>
-              <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground whitespace-nowrap w-36">Рейс</th>
-              <th className="w-20 px-2 py-2.5" />
+              <th className="px-2 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap w-16">Дней</th>
+              <th className="px-2 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap w-32">Рейс</th>
+              <th className="w-16 px-2 py-2" />
             </tr>
           </thead>
           <tbody>
@@ -78,7 +80,7 @@ export function PlanningRailTable({
                     dragId === s.id && 'opacity-50',
                   )}
                 >
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-1.5">
                     <input
                       type="checkbox"
                       className="rounded"
@@ -87,7 +89,7 @@ export function PlanningRailTable({
                     />
                   </td>
                   {COLS.map(col => (
-                    <td key={col.key} className={cn('px-3 py-2 text-foreground', col.width)}>
+                    <td key={col.key} className={cn('px-2 py-1.5 text-foreground', col.width)}>
                       {col.key === 'number' ? (
                         <span className="text-muted-foreground font-medium">{idx + 1}</span>
                       ) : col.key === 'status' ? (
@@ -96,6 +98,11 @@ export function PlanningRailTable({
                         <ShipmentTypeCell value={s.shipmentType} onChange={v => onEdit(s.id, 'shipmentType', v)} />
                       ) : col.key === 'terminal' ? (
                         <TerminalCell value={s.terminal} onChange={v => onEdit(s.id, 'terminal', v)} />
+                      ) : col.key === 'inspectionNote' ? (
+                        <InspectionNoteCell
+                          value={(s.inspectionNote || 'without_connection') as InspectionNote}
+                          onChange={v => onEdit(s.id, 'inspectionNote', v)}
+                        />
                       ) : (
                         <EditableCell
                           value={String(s[col.key] ?? '')}
@@ -105,7 +112,7 @@ export function PlanningRailTable({
                       )}
                     </td>
                   ))}
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-1.5">
                     {days !== null ? (
                       <span className={cn(
                         'inline-flex items-center justify-center rounded-full px-2 py-0.5 font-semibold text-xs',
@@ -113,30 +120,30 @@ export function PlanningRailTable({
                         days > 7 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
                         'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                       )}>
-                        {days} д
+                        {days}д
                       </span>
                     ) : <span className="text-muted-foreground/40">—</span>}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-1.5">
                     {flight
                       ? <span className="text-[10px] text-muted-foreground whitespace-nowrap">{flight.number}</span>
                       : <span className="text-muted-foreground/40">—</span>}
                   </td>
-                  <td className="px-2 py-2">
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <td className="px-1.5 py-1.5">
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         title="Копировать строку"
                         onClick={() => onCopy(s)}
                         className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        <Icon name="Copy" size={13} />
+                        <Icon name="Copy" size={12} />
                       </button>
                       <button
                         title="Переместить в рейс"
                         onClick={() => onMoveOne(s.id)}
                         className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        <Icon name="ArrowRightLeft" size={13} />
+                        <Icon name="ArrowRightLeft" size={12} />
                       </button>
                     </div>
                   </td>
@@ -146,32 +153,41 @@ export function PlanningRailTable({
           </tbody>
         </table>
       </div>
-      <div className="px-4 py-2.5 border-t border-border bg-muted/30 flex items-center justify-between">
+      <div className="px-3 py-2 border-t border-border bg-muted/30 flex items-center justify-between gap-2 flex-wrap">
         <span className="text-xs text-muted-foreground">
           {selected.size > 0
             ? `Выбрано: ${selected.size} из ${filtered.length}`
             : `Всего: ${filtered.length} записей`}
         </span>
-        {selected.size > 0 && (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onCopySelected}>
-              <Icon name="Copy" size={12} className="mr-1" /> Копировать ({selected.size})
-            </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onMoveSelected}>
-              <Icon name="ArrowRightLeft" size={12} className="mr-1" /> Переместить в рейс
-            </Button>
-            <Button
-              variant="outline" size="sm"
-              className="h-7 text-xs text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/5"
-              onClick={onDeleteSelected}
-            >
-              <Icon name="Trash2" size={12} className="mr-1" /> Удалить ({selected.size})
-            </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onClearSelected}>
-              Снять выделение
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2 flex-wrap">
+          {selected.size > 0 && (
+            <>
+              <Button
+                size="sm"
+                className="h-7 text-xs bg-orange-600 hover:bg-orange-700 text-white"
+                onClick={onInspectionRequest}
+              >
+                <Icon name="FileSearch" size={12} className="mr-1" /> Заявка на досмотр ({selected.size})
+              </Button>
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onCopySelected}>
+                <Icon name="Copy" size={12} className="mr-1" /> Копировать ({selected.size})
+              </Button>
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onMoveSelected}>
+                <Icon name="ArrowRightLeft" size={12} className="mr-1" /> В рейс
+              </Button>
+              <Button
+                variant="outline" size="sm"
+                className="h-7 text-xs text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/5"
+                onClick={onDeleteSelected}
+              >
+                <Icon name="Trash2" size={12} className="mr-1" /> Удалить ({selected.size})
+              </Button>
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onClearSelected}>
+                Снять выделение
+              </Button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

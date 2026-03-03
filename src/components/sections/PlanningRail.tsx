@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { COLS, STATUS_ROW_COLORS, calcDaysOnTerminal, EditableCell, StatusCell, ShipmentTypeCell, TerminalCell } from './planning-rail/PlanningRailCells';
+import { COLS, STATUS_ROW_COLORS, calcDaysOnTerminal, EditableCell, StatusCell, ShipmentTypeCell, TerminalCell, InspectionNoteCell } from './planning-rail/PlanningRailCells';
 import { FlightCreateModal, AddShipmentModal, MoveToFlightModal } from './planning-rail/PlanningRailModals';
 import { PlanningRailTable } from './planning-rail/PlanningRailTable';
+import { InspectionRequestModal } from './planning-rail/InspectionRequestModal';
 
 export default function PlanningRail() {
   const { shipments, flights, updateShipment, addShipment, deleteManyShipments, departFlight, currentUser } = useAppStore();
@@ -21,6 +22,7 @@ export default function PlanningRail() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [flightPanelId, setFlightPanelId] = useState<string | null>(null);
+  const [inspectionOpen, setInspectionOpen] = useState(false);
 
   const filtered = shipments.filter(s => {
     const q = search.toLowerCase();
@@ -219,6 +221,8 @@ export default function PlanningRail() {
                               <ShipmentTypeCell value={s.shipmentType} onChange={v => handleEdit(s.id, 'shipmentType', v)} />
                             ) : col.key === 'terminal' ? (
                               <TerminalCell value={s.terminal} onChange={v => handleEdit(s.id, 'terminal', v)} />
+                            ) : col.key === 'inspectionNote' ? (
+                              <InspectionNoteCell value={(s.inspectionNote || 'without_connection') as import('@/data/mock').InspectionNote} onChange={v => handleEdit(s.id, 'inspectionNote', v)} />
                             ) : (
                               <EditableCell
                                 value={String(s[col.key] ?? '')}
@@ -269,11 +273,18 @@ export default function PlanningRail() {
         onMoveSelected={() => setMoveOpen(true)}
         onClearSelected={() => setSelected(new Set())}
         onDeleteSelected={handleDeleteSelected}
+        onInspectionRequest={() => setInspectionOpen(true)}
       />
 
       <FlightCreateModal open={createFlight} onClose={() => setCreateFlight(false)} />
       <AddShipmentModal open={addShipmentOpen} onClose={() => setAddShipmentOpen(false)} flightId="" nextNumber={nextNumber} />
       <MoveToFlightModal open={moveOpen} onClose={() => { setMoveOpen(false); setSelected(new Set()); }} shipmentIds={Array.from(selected)} />
+      {inspectionOpen && (
+        <InspectionRequestModal
+          shipments={filtered.filter(s => selected.has(s.id))}
+          onClose={() => setInspectionOpen(false)}
+        />
+      )}
     </div>
   );
 }

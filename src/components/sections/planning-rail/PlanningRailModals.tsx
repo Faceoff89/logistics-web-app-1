@@ -65,6 +65,7 @@ const EMPTY_SHIPMENT: Omit<Shipment, 'id' | 'number'> = {
   cargo: '', tempMode: '', vsdNumber: '', status: 'not_ready', shipmentType: 'import',
   terminal: 'ПИК', destination: '', gngCode: '', etsnvCode: '', requestName: '',
   comment: '', dtNumber: '', billOfLading: '', subsidy: 'Нет', flightId: '',
+  inspectionNote: 'without_connection', vsdSender: '',
 };
 
 export function AddShipmentModal({ open, onClose, flightId, nextNumber }: { open: boolean; onClose: () => void; flightId: string; nextNumber: string }) {
@@ -182,6 +183,20 @@ export function AddShipmentModal({ open, onClose, flightId, nextNumber }: { open
           <div className="space-y-1">
             <Label>Номер ДТ</Label>
             <Input value={form.dtNumber} onChange={e => set('dtNumber', e.target.value)} />
+          </div>
+          <div className="space-y-1 col-span-2">
+            <Label>Отправитель по ВСД</Label>
+            <Input value={form.vsdSender} onChange={e => set('vsdSender', e.target.value)} placeholder="Название организации-отправителя" />
+          </div>
+          <div className="space-y-1 col-span-2">
+            <Label>Примечание для досмотра</Label>
+            <Select value={form.inspectionNote || 'without_connection'} onValueChange={v => set('inspectionNote', v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="without_connection">Без подключения</SelectItem>
+                <SelectItem value="with_connection_act">С подключением есть акт</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1 col-span-2">
             <Label>Комментарий</Label>
