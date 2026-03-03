@@ -57,16 +57,8 @@ export default function Sidebar() {
         'bg-sidebar text-sidebar-foreground border-r border-sidebar-border',
         sidebarOpen ? 'w-60' : 'w-0 lg:w-16 overflow-hidden',
       )}>
-        <div className="flex items-center gap-3 px-4 h-14 border-b border-sidebar-border shrink-0">
-          <div className="w-8 h-8 flex items-center justify-center shrink-0">
-            <img src="https://cdn.poehali.dev/projects/0aa0d198-0feb-42ce-b7f1-ebc1890de260/bucket/fc4da3cf-da71-492b-acb1-5cd2a3aa0462.svg" alt="Логотип" className="w-8 h-8 object-contain" />
-          </div>
-          {sidebarOpen && (
-            <div className="overflow-hidden">
-              <p className="text-sm font-semibold text-sidebar-accent-foreground leading-tight whitespace-nowrap">Полярная Звезда</p>
-              <p className="text-[10px] text-sidebar-foreground opacity-60 whitespace-nowrap">Логистика ЖД</p>
-            </div>
-          )}
+        <div className="flex items-center justify-center px-2 h-14 border-b border-sidebar-border shrink-0">
+          <img src="https://cdn.poehali.dev/projects/0aa0d198-0feb-42ce-b7f1-ebc1890de260/bucket/fc4da3cf-da71-492b-acb1-5cd2a3aa0462.svg" alt="Логотип" className="h-10 w-auto object-contain" />
         </div>
 
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
