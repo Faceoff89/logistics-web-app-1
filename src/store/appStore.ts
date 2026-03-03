@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { User, Shipment, Flight, Equipment, ActionLog, AutoTask, ArrivalShipment } from '@/data/mock';
 import { authApi, dataApi } from '@/lib/api';
 
-export type Section = 'dashboard' | 'planning-rail' | 'planning-auto' | 'planning-arrival' | 'flights-rail' | 'equipment' | 'requests' | 'accounts' | 'reports' | 'database';
+export type Section = 'dashboard' | 'planning-rail' | 'planning-auto' | 'planning-arrival' | 'flights-rail' | 'rail-approaches' | 'equipment' | 'requests' | 'accounts' | 'reports' | 'database';
 
 interface AppStore {
   currentUser: User | null;
