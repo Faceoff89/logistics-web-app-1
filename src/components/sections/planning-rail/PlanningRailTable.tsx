@@ -36,15 +36,21 @@ export function PlanningRailTable({
   onInspectionRequest,
 }: PlanningRailTableProps) {
   const [colFilters, setColFilters] = useState<Partial<Record<keyof Shipment | 'flight', string>>>({});
+  const [sortCol, setSortCol] = useState<keyof Shipment | 'flight' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc' | null>(null);
 
   const setFilter = (key: string, val: string) =>
     setColFilters(p => ({ ...p, [key]: val }));
 
+  const handleSort = (key: keyof Shipment | 'flight', dir: 'asc' | 'desc' | null) => {
+    if (dir === null) { setSortCol(null); setSortDir(null); }
+    else { setSortCol(key); setSortDir(dir); }
+  };
+
   const hasFilters = Object.values(colFilters).some(v => v);
 
   const displayed = useMemo(() => {
-    if (!hasFilters) return filtered;
-    return filtered.filter(s => {
+    let result = filtered.filter(s => {
       for (const [key, val] of Object.entries(colFilters)) {
         if (!val) continue;
         const q = val.toLowerCase();
@@ -57,7 +63,19 @@ export function PlanningRailTable({
       }
       return true;
     });
-  }, [filtered, colFilters, flights, hasFilters]);
+    if (sortCol && sortDir) {
+      result = [...result].sort((a, b) => {
+        const aVal = sortCol === 'flight'
+          ? (flights.find(f => f.id === a.flightId)?.number || '')
+          : String(a[sortCol as keyof Shipment] ?? '');
+        const bVal = sortCol === 'flight'
+          ? (flights.find(f => f.id === b.flightId)?.number || '')
+          : String(b[sortCol as keyof Shipment] ?? '');
+        return sortDir === 'asc' ? aVal.localeCompare(bVal, 'ru') : bVal.localeCompare(aVal, 'ru');
+      });
+    }
+    return result;
+  }, [filtered, colFilters, flights, sortCol, sortDir]);
 
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -84,23 +102,31 @@ export function PlanningRailTable({
                   onChange={e => onSelectAll(e.target.checked)}
                 />
               </th>
-              {COLS.map(col => (
-                <th key={col.key} className={cn('px-2 py-1.5 text-left font-semibold text-muted-foreground', col.width)}>
-                  <div className="whitespace-nowrap mb-1">{col.label}</div>
-                  <ColFilter
-                    value={colFilters[col.key] || ''}
-                    onChange={v => setFilter(col.key, v)}
-                  />
-                </th>
+              {COLS.map((col, colIdx) => (
+                <>
+                  <th key={col.key} className={cn('px-2 py-1.5 text-left font-semibold text-muted-foreground', col.width)}>
+                    <div className="whitespace-nowrap mb-1">{col.label}</div>
+                    <ColFilter
+                      value={colFilters[col.key] || ''}
+                      onChange={v => setFilter(col.key, v)}
+                      sortDir={sortCol === col.key ? sortDir : null}
+                      onSort={dir => handleSort(col.key, dir)}
+                    />
+                  </th>
+                  {colIdx === 0 && (
+                    <th key="days-header" className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-14">
+                      <div className="whitespace-nowrap mb-1">Дней</div>
+                    </th>
+                  )}
+                </>
               ))}
-              <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-16">
-                <div className="whitespace-nowrap mb-1">Дней</div>
-              </th>
               <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-32">
                 <div className="whitespace-nowrap mb-1">Рейс</div>
                 <ColFilter
                   value={colFilters['flight'] || ''}
                   onChange={v => setFilter('flight', v)}
+                  sortDir={sortCol === 'flight' ? sortDir : null}
+                  onSort={dir => handleSort('flight', dir)}
                 />
               </th>
               <th className="w-16 px-2 py-2" />
@@ -138,42 +164,46 @@ export function PlanningRailTable({
                       onChange={() => onToggleSelect(s.id)}
                     />
                   </td>
-                  {COLS.map(col => (
-                    <td key={col.key} className={cn('px-2 py-1.5 text-foreground', col.width)}>
-                      {col.key === 'number' ? (
-                        <span className="text-muted-foreground font-medium">{idx + 1}</span>
-                      ) : col.key === 'status' ? (
-                        <StatusCell value={s.status} onChange={v => onEdit(s.id, 'status', v)} />
-                      ) : col.key === 'shipmentType' ? (
-                        <ShipmentTypeCell value={s.shipmentType} onChange={v => onEdit(s.id, 'shipmentType', v)} />
-                      ) : col.key === 'terminal' ? (
-                        <TerminalCell value={s.terminal} onChange={v => onEdit(s.id, 'terminal', v)} />
-                      ) : col.key === 'inspectionNote' ? (
-                        <InspectionNoteCell
-                          value={(s.inspectionNote || 'without_connection') as InspectionNote}
-                          onChange={v => onEdit(s.id, 'inspectionNote', v)}
-                        />
-                      ) : (
-                        <EditableCell
-                          value={String(s[col.key] ?? '')}
-                          onChange={v => onEdit(s.id, col.key, v)}
-                          type={col.key.includes('Date') ? 'date' : 'text'}
-                        />
+                  {COLS.map((col, colIdx) => (
+                    <>
+                      <td key={col.key} className={cn('px-2 py-1.5 text-foreground', col.width)}>
+                        {col.key === 'number' ? (
+                          <span className="text-muted-foreground font-medium">{idx + 1}</span>
+                        ) : col.key === 'status' ? (
+                          <StatusCell value={s.status} onChange={v => onEdit(s.id, 'status', v)} />
+                        ) : col.key === 'shipmentType' ? (
+                          <ShipmentTypeCell value={s.shipmentType} onChange={v => onEdit(s.id, 'shipmentType', v)} />
+                        ) : col.key === 'terminal' ? (
+                          <TerminalCell value={s.terminal} onChange={v => onEdit(s.id, 'terminal', v)} />
+                        ) : col.key === 'inspectionNote' ? (
+                          <InspectionNoteCell
+                            value={(s.inspectionNote || 'without_connection') as InspectionNote}
+                            onChange={v => onEdit(s.id, 'inspectionNote', v)}
+                          />
+                        ) : (
+                          <EditableCell
+                            value={String(s[col.key] ?? '')}
+                            onChange={v => onEdit(s.id, col.key, v)}
+                            type={col.key.includes('Date') ? 'date' : 'text'}
+                          />
+                        )}
+                      </td>
+                      {colIdx === 0 && (
+                        <td key="days-cell" className="px-2 py-1.5 w-14">
+                          {days !== null ? (
+                            <span className={cn(
+                              'inline-flex items-center justify-center rounded-full px-2 py-0.5 font-semibold text-xs',
+                              days > 14 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                              days > 7 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                              'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                            )}>
+                              {days}д
+                            </span>
+                          ) : <span className="text-muted-foreground/40">—</span>}
+                        </td>
                       )}
-                    </td>
+                    </>
                   ))}
-                  <td className="px-2 py-1.5">
-                    {days !== null ? (
-                      <span className={cn(
-                        'inline-flex items-center justify-center rounded-full px-2 py-0.5 font-semibold text-xs',
-                        days > 14 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                        days > 7 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
-                        'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                      )}>
-                        {days}д
-                      </span>
-                    ) : <span className="text-muted-foreground/40">—</span>}
-                  </td>
                   <td className="px-2 py-1.5">
                     {flight
                       ? <span className="text-[10px] text-muted-foreground whitespace-nowrap">{flight.number}</span>

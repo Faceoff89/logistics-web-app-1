@@ -21,14 +21,13 @@ export default function PlanningRail() {
   const [moveOpen, setMoveOpen] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [flightPanelId, setFlightPanelId] = useState<string | null>(null);
   const [inspectionOpen, setInspectionOpen] = useState(false);
 
   const filtered = shipments.filter(s => {
     const q = search.toLowerCase();
     const matchSearch = !q || Object.values(s).some(v => String(v).toLowerCase().includes(q));
     const matchStatus = filterStatus === 'all' || s.status === filterStatus;
-    const matchFlight = filterFlight === 'all' || s.flightId === filterFlight;
+    const matchFlight = filterFlight === 'all' || (filterFlight === 'unassigned' ? !s.flightId : s.flightId === filterFlight);
     return matchSearch && matchStatus && matchFlight;
   });
 
@@ -81,18 +80,6 @@ export default function PlanningRail() {
     setSelected(new Set());
   };
 
-  const panelShipments = flightPanelId === 'unassigned'
-    ? shipments.filter(s => !s.flightId)
-    : flightPanelId
-      ? shipments.filter(s => s.flightId === flightPanelId)
-      : [];
-  const panelFlight = flightPanelId && flightPanelId !== 'unassigned'
-    ? flights.find(f => f.id === flightPanelId)
-    : null;
-  const panelTitle = flightPanelId === 'unassigned'
-    ? 'Не распределённые'
-    : panelFlight?.number ?? '';
-
   const exportCSV = () => {
     const rows = [COLS.map(c => c.label).join(';')];
     filtered.forEach(s => rows.push(COLS.map(c => String(s[c.key] ?? '')).join(';')));
@@ -132,107 +119,104 @@ export default function PlanningRail() {
         </Button>
       </div>
 
-      <div className="flex gap-2 flex-wrap items-center">
-        <p className="text-xs text-muted-foreground shrink-0">Рейсы:</p>
-        <div
-          onClick={() => setFlightPanelId(prev => prev === 'unassigned' ? null : 'unassigned')}
-          onDragOver={e => e.preventDefault()}
-          onDrop={() => handleDrop('')}
-          className={cn(
-            'px-3 py-1.5 rounded-lg border-2 border-dashed text-xs transition-colors cursor-pointer',
-            flightPanelId === 'unassigned'
-              ? 'border-primary text-primary bg-primary/5'
-              : 'border-border text-muted-foreground hover:border-primary hover:text-primary'
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div className="px-4 py-2 border-b border-border bg-muted/30 flex items-center gap-2">
+          <Icon name="Train" size={14} className="text-muted-foreground" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Рейсы</span>
+          {filterFlight !== 'all' && (
+            <button onClick={() => setFilterFlight('all')} className="ml-auto text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <Icon name="X" size={12} /> Сбросить фильтр
+            </button>
           )}
-        >
-          Не распределённые ({shipments.filter(s => !s.flightId).length})
         </div>
-        {flights.map(f => {
-          const count = shipments.filter(s => s.flightId === f.id).length;
-          return (
-            <div
-              key={f.id}
-              onClick={() => setFlightPanelId(prev => prev === f.id ? null : f.id)}
-              onDragOver={e => e.preventDefault()}
-              onDrop={() => handleDrop(f.id)}
-              className={cn(
-                'px-3 py-1.5 rounded-lg border-2 border-dashed text-xs transition-colors cursor-pointer',
-                flightPanelId === f.id
-                  ? 'border-primary text-primary bg-primary/5'
-                  : 'border-border text-muted-foreground hover:border-primary hover:text-primary'
-              )}
-            >
-              {f.number} ({count})
-            </div>
-          );
-        })}
-      </div>
-
-      {flightPanelId && (
-        <div className="bg-card rounded-xl border border-border overflow-hidden animate-fade-in">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
-            <span className="text-sm font-semibold text-foreground">{panelTitle}</span>
-            <div className="flex items-center gap-2">
-              {panelFlight && panelFlight.status !== 'departed' && (
-                <Button
-                  size="sm"
-                  className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => {
-                    if (!currentUser) return;
-                    departFlight(panelFlight.id, currentUser.id, currentUser.name);
-                    setFlightPanelId(null);
-                  }}
-                >
-                  <Icon name="Train" size={12} className="mr-1" /> В путь
-                </Button>
-              )}
-              <button onClick={() => setFlightPanelId(null)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <Icon name="X" size={14} />
-              </button>
-            </div>
-          </div>
-          {panelShipments.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">Нет заявок</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-max w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border bg-muted/20">
-                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap w-10">№</th>
-                    {COLS.filter(c => c.key !== 'number').map(col => (
-                      <th key={col.key} className={cn('px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap', col.width)}>
-                        {col.label}
-                      </th>
-                    ))}
-                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap w-20">Дней на терм.</th>
+        <div className="overflow-x-auto">
+          <table className="min-w-max w-full text-xs">
+            <thead>
+              <tr className="border-b border-border bg-muted/20">
+                <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-10">№</th>
+                <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-32">Контейнер</th>
+                <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-28">Статус</th>
+                <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-28">Заявка</th>
+                <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-36">Клиент</th>
+                <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-14">Футы</th>
+                <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-14">Дней</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { id: 'unassigned', label: 'Не распределённые', items: shipments.filter(s => !s.flightId), flight: null },
+                ...flights.map(f => ({ id: f.id, label: f.number, items: shipments.filter(s => s.flightId === f.id), flight: f })),
+              ].map(group => (
+                <>
+                  <tr
+                    key={`group-${group.id}`}
+                    className={cn(
+                      'border-b border-border cursor-pointer select-none transition-colors',
+                      filterFlight === group.id || (group.id === 'unassigned' && filterFlight === 'unassigned')
+                        ? 'bg-primary/10'
+                        : 'bg-muted/40 hover:bg-muted/60',
+                    )}
+                    onClick={() => {
+                      if (group.id === 'unassigned') {
+                        setFilterFlight(prev => prev === 'unassigned' ? 'all' : 'unassigned');
+                      } else {
+                        setFilterFlight(prev => prev === group.id ? 'all' : group.id);
+                      }
+                    }}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={() => handleDrop(group.id === 'unassigned' ? '' : group.id)}
+                  >
+                    <td colSpan={7} className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Icon name="Train" size={12} className={cn(
+                          filterFlight === group.id || (group.id === 'unassigned' && filterFlight === 'unassigned')
+                            ? 'text-primary'
+                            : 'text-muted-foreground'
+                        )} />
+                        <span className={cn(
+                          'font-semibold',
+                          filterFlight === group.id || (group.id === 'unassigned' && filterFlight === 'unassigned')
+                            ? 'text-primary'
+                            : 'text-foreground'
+                        )}>
+                          {group.label}
+                        </span>
+                        <span className="text-muted-foreground text-[11px]">({group.items.length})</span>
+                        {group.flight && group.flight.status !== 'departed' && (
+                          <Button
+                            size="sm"
+                            className="h-5 text-[10px] px-2 ml-2 bg-blue-600 hover:bg-blue-700 text-white"
+                            onClick={e => {
+                              e.stopPropagation();
+                              if (!currentUser) return;
+                              departFlight(group.flight!.id, currentUser.id, currentUser.name);
+                            }}
+                          >
+                            <Icon name="Train" size={10} className="mr-1" /> В путь
+                          </Button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {panelShipments.map((s, idx) => {
+                  {group.items.map((s, idx) => {
                     const days = calcDaysOnTerminal(s.deliveryDate);
                     return (
-                      <tr key={s.id} className={cn('border-b border-border last:border-0', STATUS_ROW_COLORS[s.status])}>
-                        <td className="px-3 py-2 text-muted-foreground font-medium">{idx + 1}</td>
-                        {COLS.filter(c => c.key !== 'number').map(col => (
-                          <td key={col.key} className={cn('px-3 py-2 text-foreground', col.width)}>
-                            {col.key === 'status' ? (
-                              <StatusCell value={s.status} onChange={v => handleEdit(s.id, 'status', v)} />
-                            ) : col.key === 'shipmentType' ? (
-                              <ShipmentTypeCell value={s.shipmentType} onChange={v => handleEdit(s.id, 'shipmentType', v)} />
-                            ) : col.key === 'terminal' ? (
-                              <TerminalCell value={s.terminal} onChange={v => handleEdit(s.id, 'terminal', v)} />
-                            ) : col.key === 'inspectionNote' ? (
-                              <InspectionNoteCell value={(s.inspectionNote || 'without_connection') as import('@/data/mock').InspectionNote} onChange={v => handleEdit(s.id, 'inspectionNote', v)} />
-                            ) : (
-                              <EditableCell
-                                value={String(s[col.key] ?? '')}
-                                onChange={v => handleEdit(s.id, col.key, v)}
-                                type={col.key.includes('Date') ? 'date' : 'text'}
-                              />
-                            )}
-                          </td>
-                        ))}
-                        <td className="px-3 py-2">
+                      <tr
+                        key={s.id}
+                        draggable
+                        onDragStart={() => setDragId(s.id)}
+                        onDragEnd={() => setDragId(null)}
+                        className={cn('border-b border-border transition-colors', STATUS_ROW_COLORS[s.status], dragId === s.id && 'opacity-50')}
+                      >
+                        <td className="px-3 py-1.5 text-muted-foreground font-medium pl-7">{idx + 1}</td>
+                        <td className="px-3 py-1.5 text-foreground font-medium">{s.containerNumber || '—'}</td>
+                        <td className="px-3 py-1.5">
+                          <StatusCell value={s.status} onChange={v => handleEdit(s.id, 'status', v)} />
+                        </td>
+                        <td className="px-3 py-1.5 text-foreground">{s.request || '—'}</td>
+                        <td className="px-3 py-1.5 text-foreground">{s.client || '—'}</td>
+                        <td className="px-3 py-1.5 text-foreground">{s.footage || '—'}</td>
+                        <td className="px-3 py-1.5">
                           {days !== null ? (
                             <span className={cn(
                               'inline-flex items-center justify-center rounded-full px-2 py-0.5 font-semibold text-xs',
@@ -240,22 +224,19 @@ export default function PlanningRail() {
                               days > 7 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
                               'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                             )}>
-                              {days} д
+                              {days}д
                             </span>
                           ) : <span className="text-muted-foreground/40">—</span>}
                         </td>
                       </tr>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <div className="px-4 py-2 border-t border-border bg-muted/10">
-            <span className="text-xs text-muted-foreground">Всего: {panelShipments.length} заявок</span>
-          </div>
+                </>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
       <PlanningRailTable
         filtered={filtered}
