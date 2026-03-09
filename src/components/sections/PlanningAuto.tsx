@@ -5,9 +5,10 @@ import { EMPTY_TASK, getColsForType } from './planning-auto/constants';
 import { PlanningAutoFilters } from './planning-auto/PlanningAutoFilters';
 import { PlanningAutoTable } from './planning-auto/PlanningAutoTable';
 import { PlanningAutoModal } from './planning-auto/PlanningAutoModal';
+import { AutoRequestModal } from './planning-auto/AutoRequestModal';
 
 export default function PlanningAuto() {
-  const { autoTasks, addAutoTask, updateAutoTask, deleteManyAutoTasks } = useAppStore();
+  const { autoTasks, addAutoTask, updateAutoTask, deleteManyAutoTasks, currentUser } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<AutoTaskType>('movement');
   const [search, setSearch] = useState('');
@@ -21,6 +22,7 @@ export default function PlanningAuto() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editTask, setEditTask] = useState<AutoTask | null>(null);
   const [formData, setFormData] = useState<Omit<AutoTask, 'id'>>(EMPTY_TASK('movement'));
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
 
   const filtered = useMemo(() => {
     return autoTasks
@@ -131,6 +133,7 @@ export default function PlanningAuto() {
         onClearSelected={() => setSelected(new Set())}
         onExportCSV={exportCSV}
         onAdd={openAdd}
+        onGenerateRequest={() => setRequestModalOpen(true)}
       />
 
       <PlanningAutoTable
@@ -153,6 +156,13 @@ export default function PlanningAuto() {
         onOpenChange={setModalOpen}
         onFormChange={setFormData}
         onSave={handleSave}
+      />
+
+      <AutoRequestModal
+        open={requestModalOpen}
+        onOpenChange={setRequestModalOpen}
+        tasks={selected.size > 0 ? filtered.filter(t => selected.has(t.id)) : filtered}
+        userName={currentUser?.name ?? ''}
       />
     </div>
   );

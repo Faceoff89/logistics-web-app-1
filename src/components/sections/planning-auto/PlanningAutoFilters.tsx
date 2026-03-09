@@ -22,6 +22,7 @@ interface PlanningAutoFiltersProps {
   onClearSelected: () => void;
   onExportCSV: () => void;
   onAdd: () => void;
+  onGenerateRequest: () => void;
 }
 
 export function PlanningAutoFilters({
@@ -40,6 +41,7 @@ export function PlanningAutoFilters({
   onClearSelected,
   onExportCSV,
   onAdd,
+  onGenerateRequest,
 }: PlanningAutoFiltersProps) {
   return (
     <>
@@ -54,6 +56,9 @@ export function PlanningAutoFilters({
           </Button>
           <Button size="sm" onClick={onAdd}>
             <Icon name="Plus" size={14} className="mr-1" /> Добавить запись
+          </Button>
+          <Button variant="outline" size="sm" onClick={onGenerateRequest} className="border-blue-400 text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950">
+            <Icon name="FileText" size={14} className="mr-1" /> Сформировать заявку
           </Button>
         </div>
       </div>
