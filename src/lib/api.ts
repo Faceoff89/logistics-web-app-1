@@ -1,5 +1,6 @@
 const AUTH_URL = 'https://functions.poehali.dev/c23ce911-b353-4958-bcba-88fef29e86f2';
 const DATA_URL = 'https://functions.poehali.dev/eadd2566-d258-4511-9c67-58a555fec1db';
+const MONITORING_URL = 'https://functions.poehali.dev/a3a76d90-2c6d-4e6b-ba3d-53c553533bcc';
 
 function getToken(): string {
   return localStorage.getItem('auth_token') || '';
@@ -84,6 +85,42 @@ export const dataApi = {
 
 const DIR_KEYS = ['clients', 'contractors', 'containers', 'vehicles', 'vessels', 'wagons', 'dgk', 'egk', 'ndgu', 'stations', 'terminals', 'cargo', 'cities'] as const;
 export type DirKey = typeof DIR_KEYS[number];
+
+// ── Monitoring ────────────────────────────────────────────────────────────────
+
+async function monitoringFetch(payload: Record<string, unknown>) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getToken();
+  if (token) headers['X-Auth-Token'] = token;
+  const res = await fetch(MONITORING_URL, { method: 'POST', headers, body: JSON.stringify(payload) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Ошибка сервера');
+  return data;
+}
+
+export const monitoringApi = {
+  getSummary: (days = 14) =>
+    fetch(`${MONITORING_URL}?action=get_summary&days=${days}`, {
+      headers: { 'X-Auth-Token': getToken() },
+    }).then(r => r.json()),
+
+  addContainer: (data: { container_number: string; load_temp?: string; note?: string }) =>
+    monitoringFetch({ action: 'add_container', ...data }),
+
+  updateContainer: (id: string, data: Partial<{ container_number: string; load_temp: string; note: string; sort_order: number }>) =>
+    monitoringFetch({ action: 'update_container', id, ...data }),
+
+  deleteContainer: (id: string) =>
+    monitoringFetch({ action: 'delete_container', id }),
+
+  setTemperature: (container_id: string, date: string, temperature: string) =>
+    monitoringFetch({ action: 'set_temperature', container_id, date, temperature }),
+
+  bulkSetTemperatures: (date: string, entries: { container_id: string; temperature: string }[]) =>
+    monitoringFetch({ action: 'bulk_set_temperatures', date, entries }),
+};
+
+// ── Database Directory ────────────────────────────────────────────────────────
 
 export const dbApi = {
   get: (key: DirKey) => dataFetch({ action: `db_get_${key}` }),

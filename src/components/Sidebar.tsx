@@ -16,6 +16,7 @@ const NAV: NavItem[] = [
   { id: 'planning-arrival', label: 'Планирование ПРИБЫТИЕ', icon: 'TrainFront', parent: 'Планирование' },
   { id: 'flights-rail', label: 'Рейсы ЖД', icon: 'Train', parent: 'Рейсы' },
   { id: 'rail-approaches', label: 'Подходы ЖД', icon: 'TrainTrack', parent: 'Рейсы' },
+  { id: 'monitoring', label: 'Мониторинг', icon: 'Thermometer' },
   { id: 'equipment', label: 'Оборудование', icon: 'Container' },
   { id: 'requests', label: 'Заявки', icon: 'ClipboardList' },
   { id: 'database', label: 'База данных', icon: 'Database' },
@@ -27,6 +28,7 @@ const ROLE_LABELS: Record<string, string> = {
   logist: 'Логист',
   manager: 'Менеджер',
   director: 'Директор',
+  mechanic: 'Механик',
 };
 
 export default function Sidebar() {
