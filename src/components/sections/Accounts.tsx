@@ -14,6 +14,7 @@ const ROLE_LABELS: Record<string, string> = {
   manager: 'Менеджер',
   director: 'Директор',
   admin: 'Администратор',
+  mechanic: 'Механик',
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -21,6 +22,7 @@ const ROLE_COLORS: Record<string, string> = {
   manager: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
   director: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
   admin: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+  mechanic: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
 };
 
 const ACTION_ICONS: Record<string, string> = {
