@@ -1,0 +1,2 @@
+ALTER TABLE t_p78311576_logistics_web_app_1.users DROP CONSTRAINT users_role_check;
+ALTER TABLE t_p78311576_logistics_web_app_1.users ADD CONSTRAINT users_role_check CHECK (role IN ('logist', 'manager', 'director', 'admin', 'mechanic'));
