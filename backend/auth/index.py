@@ -136,7 +136,7 @@ def handler(event: dict, context) -> dict:
             role = body.get('role', 'logist')
             if not name or not email or not password:
                 return err('Заполните все поля')
-            if role not in ('logist', 'manager', 'director', 'admin'):
+            if role not in ('logist', 'manager', 'director', 'admin', 'mechanic'):
                 return err('Неверная роль')
             cur = conn.cursor()
             cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE email = {q(email)}")
@@ -164,7 +164,7 @@ def handler(event: dict, context) -> dict:
             if 'email' in body:
                 parts.append(f"email = {q(body['email'].lower())}")
             if 'role' in body:
-                if body['role'] not in ('logist', 'manager', 'director', 'admin'):
+                if body['role'] not in ('logist', 'manager', 'director', 'admin', 'mechanic'):
                     return err('Неверная роль')
                 parts.append(f"role = {q(body['role'])}")
             if 'password' in body and body['password']:
